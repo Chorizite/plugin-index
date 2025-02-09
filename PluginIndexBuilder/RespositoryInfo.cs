@@ -213,13 +213,14 @@ namespace Chorizite.PluginIndexBuilder {
 
         private async Task<string?> DownloadAndExtractRelease(Release release, ReleaseAsset zip) {
             try {
-                var zipPath = Path.Combine(workDirectory, $"{release.TagName}.zip");
-                var extractPath = Path.Combine(workDirectory, $"{release.TagName}");
+                var dirName = release.TagName.Split('/').Last();
+                var zipPath = Path.Combine(workDirectory, $"{dirName}.zip");
+                var extractPath = Path.Combine(workDirectory, $"{dirName}");
 
                 if (File.Exists(zipPath)) File.Delete(zipPath);
                 if (Directory.Exists(extractPath)) Directory.Delete(extractPath, true);
 
-                if (options.Verbose) Log($"Downloading: {zip.Name}: {zip.BrowserDownloadUrl}");
+                if (options.Verbose) Log($"Downloading: {zip.Name}: {zip.BrowserDownloadUrl} -> {zipPath}");
                 using (var response = await http.GetAsync(zip.BrowserDownloadUrl)) {
                     response.EnsureSuccessStatusCode();
                     using (var fileStream = File.Create(zipPath)) {
