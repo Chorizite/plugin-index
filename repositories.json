@@ -1,6 +1,7 @@
 {
   "repositories": {
     "CoreTestPlugin": "https://github.com/Chorizite/CoreTestPlugin",
-    "TestPlugin": "https://github.com/trevis/TestPlugin"
+    "TestPlugin": "https://github.com/trevis/TestPlugin",
+    "Lua": "https://github.com/Chorizite/LuaPlugin"
   }
 }
