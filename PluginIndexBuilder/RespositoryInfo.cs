@@ -28,6 +28,8 @@ namespace Chorizite.PluginIndexBuilder {
         internal GitHubClient client;
         private Logger _log;
 
+        private static List<string> CorePlugins = ["Lua"];
+
         internal string repoPath => RepoUrl.Replace("https://github.com/", "");
         internal string repoOwner => repoPath.Split("/")[0];
         internal string repoName => repoPath.Split("/")[1];
@@ -35,6 +37,8 @@ namespace Chorizite.PluginIndexBuilder {
         internal ConcurrentBag<ReleaseInfo> releaseInfos = new ConcurrentBag<ReleaseInfo>();
 
         public string Name { get; set; }
+        public string PackageId => IsCorePlugin ? $"Chorizite.Plugins.{Name}" : Name ;
+        public bool IsCorePlugin => CorePlugins.Contains(Name);
 
         private SourceCacheContext nugetCache;
 
@@ -78,7 +82,7 @@ namespace Chorizite.PluginIndexBuilder {
         private async Task MirrorPackages() {
             FindPackageByIdResource resource = await nugetRepo.GetResourceAsync<FindPackageByIdResource>();
 
-            nugetVersions = await resource.GetAllVersionsAsync(Name, nugetCache, _log, CancellationToken.None);
+            nugetVersions = await resource.GetAllVersionsAsync(PackageId, nugetCache, _log, CancellationToken.None);
             await Task.WhenAll(releaseInfos.Select(r => MirrorPackage(r)));
         }
 
@@ -86,22 +90,22 @@ namespace Chorizite.PluginIndexBuilder {
             try {
                 var existing = nugetVersions.FirstOrDefault(v => v.ToNormalizedString() == r.manifestVersion);
                 if (existing != null) {
-                    if (options.Verbose) Log($"Package {Name}-{r.manifestVersion} already exists: ({string.Join(", ", nugetVersions.Select(v => v.ToNormalizedString()))})");
+                    if (options.Verbose) Log($"Package {PackageId}-{r.manifestVersion} already exists: ({string.Join(", ", nugetVersions.Select(v => v.ToNormalizedString()))})");
                     return;
                 }
-                Log($"Package {Name}-{r.manifestVersion} needs mirroring");
+                Log($"Package ({Name}:{IsCorePlugin}){PackageId}-{r.manifestVersion} needs mirroring");
 
-                var nugetUrl = $"https://nuget.pkg.github.com/{repoOwner}/download/{Name}/{r.manifestVersion}/{Name}.{r.manifestVersion}.nupkg";
+                var nugetUrl = $"https://nuget.pkg.github.com/{repoOwner}/download/{PackageId}/{r.manifestVersion}/{PackageId}.{r.manifestVersion}.nupkg";
                 var authHeader = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{IndexBuilder.GithubUser}:{IndexBuilder.GithubToken}"));
 
-                var nugetFile = Path.Combine(workDirectory, $"{Name}.{r.manifestVersion}.nupkg");
+                var nugetFile = Path.Combine(workDirectory, $"{PackageId}.{r.manifestVersion}.nupkg");
 
                 using (var request = new HttpRequestMessage(HttpMethod.Get, nugetUrl)) {
                     request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authHeader);
 
                     using (var response = await http.SendAsync(request)) {
                         if (!response.IsSuccessStatusCode) {
-                            Log($"Error downloading nuget package ({r.manifestName}-{r.manifestVersion}): {response.StatusCode}");
+                            Log($"Error downloading nuget package ({PackageId}-{r.manifestVersion}): {response.StatusCode}");
                             return;
                         }
                         using (var fileStream = File.Create(nugetFile)) {
@@ -111,7 +115,7 @@ namespace Chorizite.PluginIndexBuilder {
                 }
 
                 if (!File.Exists(nugetFile)) {
-                    Log($"Error downloading nuget package ({r.manifestName}-{r.manifestVersion}): File not found");
+                    Log($"Error downloading nuget package ({PackageId}-{r.manifestVersion}): File not found");
                     return;
                 }
 
