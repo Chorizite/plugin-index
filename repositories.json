@@ -2,6 +2,9 @@
   "repositories": {
     "CoreTestPlugin": "https://github.com/Chorizite/CoreTestPlugin",
     "TestPlugin": "https://github.com/trevis/TestPlugin",
-    "Lua": "https://github.com/Chorizite/LuaPlugin"
+    "Lua": "https://github.com/Chorizite/LuaPlugin",
+    "RmlUi": "https://github.com/Chorizite/RmlUiPlugin",
+    "Launcher": "https://github.com/Chorizite/LauncherPlugin",
+    "AC": "https://github.com/Chorizite/ACPlugin"
   }
 }
