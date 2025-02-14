@@ -28,7 +28,7 @@ namespace Chorizite.PluginIndexBuilder {
         internal GitHubClient client;
         private Logger _log;
 
-        private static List<string> CorePlugins = ["Lua"];
+        private static List<string> CorePlugins = ["Lua", "RmlUi", "Launcher", "AC", "PluginManagerUI"];
 
         internal string repoPath => RepoUrl.Replace("https://github.com/", "");
         internal string repoOwner => repoPath.Split("/")[0];

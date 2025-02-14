@@ -5,6 +5,7 @@
     "RmlUi": "https://github.com/Chorizite/RmlUiPlugin",
     "Launcher": "https://github.com/Chorizite/LauncherPlugin",
     "AC": "https://github.com/Chorizite/ACPlugin",
-    "PluginManagerUI": "https://github.com/Chorizite/PluginManagerUIPlugin"
+    "PluginManagerUI": "https://github.com/Chorizite/PluginManagerUIPlugin",
+    "AuctionHouse": "https://github.com/ACEAuction/AuctionMod"
   }
 }
