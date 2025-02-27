@@ -18,6 +18,7 @@ namespace Chorizite.PluginIndexBuilder {
         internal static string GithubUser = Environment.GetEnvironmentVariable("GITHUB_USER") ?? Environment.GetEnvironmentVariable("GH_USER");
 
         internal static ConcurrentBag<string> AddedPlugins = [];
+        private GitHubClient _client;
 
         public IndexBuilder(Options opts) {
             options = opts;
@@ -27,59 +28,92 @@ namespace Chorizite.PluginIndexBuilder {
             }
         }
 
+        public class ChoriziteReleaseInfo {
+            public string Version { get; set; }
+            public string DownloadUrl { get; set; }
+            public string Changelog { get; set; }
+        }
+
         public class ReleasesObj {
+            public ChoriziteReleaseInfo Chorizite { get; set; } = new();
             public Dictionary<string, RespositoryInfo> Plugins { get; set; } = [];
         }
 
-        internal void Build() {
-            MakeDirectories();
+        internal async void Build() {
+            try {
+                MakeDirectories();
 
-            var jsonString = File.ReadAllText(options.RespositoriesJsonPath);
-            var json = JsonNode.Parse(jsonString);
+                var jsonString = File.ReadAllText(options.RespositoriesJsonPath);
+                var json = JsonNode.Parse(jsonString);
 
-            if (json?.AsObject().ContainsKey("repositories") != true) {
-                throw new Exception($"Missing repositories key in {options.RespositoriesJsonPath}");
+                if (json?.AsObject().ContainsKey("repositories") != true) {
+                    throw new Exception($"Missing repositories key in {options.RespositoriesJsonPath}");
+                }
+
+                _client = new GitHubClient(new ProductHeaderValue("Chorizite.PluginIndexBuilder"));
+                var tokenAuth = new Credentials(GithubToken);
+                _client.Credentials = tokenAuth;
+
+                var releasesObj = new ReleasesObj();
+                GetReleases(releasesObj).Wait();
+
+                foreach (var repo in json["repositories"]!.AsObject()) {
+                    respositories.Add(new RespositoryInfo(repo.Key.ToString(), repo.Value.ToString(), _client, options));
+                }
+
+                Task.WhenAll(respositories.Select(r => r.Build())).Wait(60000 * 5);
+
+                var releaseResults = respositories.Where(r => r.Latest is not null);
+
+                foreach (var release in releaseResults) {
+                    releasesObj.Plugins[release.Name] = release;
+                }
+
+                var releaseJson = JsonSerializer.Serialize(releasesObj, new JsonSerializerOptions {
+                    WriteIndented = true,
+                    IncludeFields = false
+                });
+                File.WriteAllText(Path.Combine(options.OutputDirectory, "index.json"), releaseJson);
+
+                if (!Directory.Exists(Path.Combine(options.OutputDirectory, "plugins"))) {
+                    Directory.CreateDirectory(Path.Combine(options.OutputDirectory, "plugins"));
+                }
+
+                var jsonRepoOpts = new JsonSerializerOptions {
+                    WriteIndented = true,
+                    IncludeFields = true
+                };
+
+                foreach (var repo in releaseResults) {
+                    var repoJsonPath = Path.Combine(options.OutputDirectory, "plugins", $"{repo.Name}.json");
+                    var repoJson = JsonSerializer.Serialize(repo, jsonRepoOpts);
+                    File.WriteAllText(repoJsonPath, repoJson);
+                }
+
+                BuildHtml(releasesObj.Plugins.Values.ToList(), Path.Combine(options.OutputDirectory, "index.html"));
             }
-
-            var client = new GitHubClient(new ProductHeaderValue("Chorizite.PluginIndexBuilder"));
-            var tokenAuth = new Credentials(GithubToken);
-            client.Credentials = tokenAuth;
-
-            foreach (var repo in json["repositories"]!.AsObject()) {
-                respositories.Add(new RespositoryInfo(repo.Key.ToString(), repo.Value.ToString(), client, options));
+            catch (Exception e) {
+                Console.WriteLine($"Error building index: {e.Message}");
             }
+        }
 
-            Task.WhenAll(respositories.Select(r => r.Build())).Wait(60000 * 5);
+        private async Task GetReleases(ReleasesObj releases) {
+            try {
+                Console.WriteLine($"----------- Chorizite ----------");
+                var allReleases = await _client.Repository.Release.GetAll("Chorizite", "Chorizite");
+                Console.WriteLine($"----------- Chorizite ----------:");
+                var release = allReleases.First();
+                var asset =  release.Assets.FirstOrDefault(a => !a.Name.Contains("Source code") && a.Name.Contains("Installer"));
 
-            var releaseResults = respositories.Where(r => r.Latest is not null);
-            var releasesObj = new ReleasesObj();
+                Console.WriteLine($"Chorizite version: {release.TagName}");
 
-            foreach (var release in releaseResults) {
-                releasesObj.Plugins[release.Name] = release;
+                releases.Chorizite.Version = release.TagName.Split('/').Last();
+                releases.Chorizite.DownloadUrl = asset.BrowserDownloadUrl;
+                releases.Chorizite.Changelog = release.Body;
             }
-
-            var releaseJson = JsonSerializer.Serialize(releasesObj, new JsonSerializerOptions {
-                WriteIndented = true,
-                IncludeFields = false
-            });
-            File.WriteAllText(Path.Combine(options.OutputDirectory, "index.json"), releaseJson);
-
-            if (!Directory.Exists(Path.Combine(options.OutputDirectory, "plugins"))) {
-                Directory.CreateDirectory(Path.Combine(options.OutputDirectory, "plugins"));
+            catch (Exception e) {
+                Console.WriteLine($"Error getting releases: {e.Message}");
             }
-
-            var jsonRepoOpts = new JsonSerializerOptions {
-                WriteIndented = true,
-                IncludeFields = true
-            };
-
-            foreach (var repo in releaseResults) {
-                var repoJsonPath = Path.Combine(options.OutputDirectory, "plugins", $"{repo.Name}.json");
-                var repoJson = JsonSerializer.Serialize(repo, jsonRepoOpts);
-                File.WriteAllText(repoJsonPath, repoJson);
-            }
-
-            BuildHtml(releasesObj.Plugins.Values.ToList(), Path.Combine(options.OutputDirectory, "index.html"));
         }
 
         private void MakeDirectories() {
