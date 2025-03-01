@@ -15,13 +15,14 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Chorizite.PluginIndexBuilder {
-    public class RespositoryInfo {
+    public class RepositoryInfo {
         internal static readonly HttpClient http = new HttpClient();
 
         internal Options options;
@@ -48,12 +49,17 @@ namespace Chorizite.PluginIndexBuilder {
         public ReleaseInfo? LatestBeta { get; set; }
         public string Author { get; set; }
 
-        public List<ReleaseInfo>? Releases = [];
+        [JsonIgnore]
+        public RepositoryInfo? ExistingReleaseInfo { get; private set; }
+
+        public List<ReleaseInfo>? Releases { get; set; } = [];
         private IReadOnlyList<PackageVersion>? _versions;
         private IEnumerable<NuGetVersion> nugetVersions;
         private SourceRepository nugetRepo;
 
-        public RespositoryInfo(string name, string repoUrl, Octokit.GitHubClient client, Options options) {
+        public RepositoryInfo() { }
+
+        public RepositoryInfo(string name, string repoUrl, Octokit.GitHubClient client, Options options) {
             this.RepoUrl = repoUrl;
             this.options = options;
             this.client = client;
@@ -138,18 +144,23 @@ namespace Chorizite.PluginIndexBuilder {
         }
 
         private async Task GetExistingReleaseInfo() {
-            if (Latest is null) return;
+            try {
+                if (Latest is null) return;
 
-            //if (options.Verbose) Log($"Downloading: ");
-            using (var response = await http.GetAsync($"https://chorizite.github.io/Plugins/plugins/{Latest.manifestName}.json")) {
-                if (!response.IsSuccessStatusCode) {
-                    Log($"Error getting existing release info: {response.StatusCode}");
-                    return;
-                }
+                //if (options.Verbose) Log($"Downloading: ");
+                using (var response = await http.GetAsync($"https://chorizite.github.io/plugin-index/plugins/{Latest.manifestName}.json")) {
+                    if (!response.IsSuccessStatusCode) {
+                        Log($"Error getting existing release info: {response.StatusCode}");
+                        return;
+                    }
 
-                using (var fileStream = File.Create(Path.Combine(workDirectory, $"{Latest.manifestName}.json"))) {
-                    await response.Content.CopyToAsync(fileStream);
+                    var json = await response.Content.ReadAsStringAsync();
+                    ExistingReleaseInfo = JsonSerializer.Deserialize<RepositoryInfo>(json);
+                    Console.WriteLine($"Existing release info: {ExistingReleaseInfo.Latest.Name}: ({string.Join(", ", ExistingReleaseInfo.Releases.Select(r => r.Version))})");
                 }
+            }
+            catch (Exception e) {
+                Log($"Error getting existing release info: {e.Message}");
             }
         }
 

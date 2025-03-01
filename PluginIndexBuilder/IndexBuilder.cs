@@ -1,4 +1,6 @@
-﻿using Octokit;
+﻿using Discord;
+using Discord.Webhook;
+using Octokit;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -12,20 +14,30 @@ using System.Threading.Tasks;
 namespace Chorizite.PluginIndexBuilder {
     internal class IndexBuilder {
         private Options options;
-        private List<RespositoryInfo> respositories = [];
+        private List<RepositoryInfo> respositories = [];
 
         internal static string GithubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN") ?? Environment.GetEnvironmentVariable("GH_TOKEN");
         internal static string GithubUser = Environment.GetEnvironmentVariable("GITHUB_USER") ?? Environment.GetEnvironmentVariable("GH_USER");
+        internal static string DiscordWebhook = Environment.GetEnvironmentVariable("DISCORD_WEBHOOK");
 
         internal static ConcurrentBag<string> AddedPlugins = [];
         private GitHubClient _client;
+        private DiscordWebhookClient discord;
 
         public IndexBuilder(Options opts) {
             options = opts;
 
-            if (string.IsNullOrEmpty(GithubToken) || string.IsNullOrEmpty(GithubUser)) {
-                throw new Exception("Missing GITHUB_TOKEN or GITHUB_USER environment variables");
+            if (string.IsNullOrEmpty(GithubToken)) {
+                throw new Exception("Missing GITHUB_TOKEN environment variable");
             }
+            if (string.IsNullOrEmpty(GithubUser)) {
+                throw new Exception("Missing GITHUB_USER environment variable");
+            }
+            if (string.IsNullOrEmpty(DiscordWebhook)) {
+                throw new Exception("Missing DISCORD_WEBHOOK environment variable");
+            }
+
+            discord = new DiscordWebhookClient(DiscordWebhook);
         }
 
         public class ChoriziteReleaseInfo {
@@ -36,10 +48,10 @@ namespace Chorizite.PluginIndexBuilder {
 
         public class ReleasesObj {
             public ChoriziteReleaseInfo Chorizite { get; set; } = new();
-            public Dictionary<string, RespositoryInfo> Plugins { get; set; } = [];
+            public Dictionary<string, RepositoryInfo> Plugins { get; set; } = [];
         }
 
-        internal async void Build() {
+        internal async Task Build() {
             try {
                 MakeDirectories();
 
@@ -58,7 +70,7 @@ namespace Chorizite.PluginIndexBuilder {
                 GetReleases(releasesObj).Wait();
 
                 foreach (var repo in json["repositories"]!.AsObject()) {
-                    respositories.Add(new RespositoryInfo(repo.Key.ToString(), repo.Value.ToString(), _client, options));
+                    respositories.Add(new RepositoryInfo(repo.Key.ToString(), repo.Value.ToString(), _client, options));
                 }
 
                 Task.WhenAll(respositories.Select(r => r.Build())).Wait(60000 * 5);
@@ -91,6 +103,30 @@ namespace Chorizite.PluginIndexBuilder {
                 }
 
                 BuildHtml(releasesObj.Plugins.Values.ToList(), Path.Combine(options.OutputDirectory, "index.html"));
+
+                var newReleaseEmbeds = new List<EmbedBuilder>();
+                foreach (var repo in releaseResults) {
+                    if (repo.Latest?.IsNew == true) {
+                        newReleaseEmbeds.Add(new EmbedBuilder {
+                            Title = $"{repo.Name} {repo.Latest.Name}",
+                            Description = repo.Latest.Changelog,
+                        });
+                        Console.WriteLine($"New release: {repo.Name} {repo.Latest.Name}");
+                    }
+                    else if (repo.LatestBeta?.IsNew == true) {
+                        newReleaseEmbeds.Add(new EmbedBuilder {
+                            Title = $"[beta] {repo.Name} v{repo.LatestBeta.Name}",
+                            Description = repo.LatestBeta.Changelog,
+                        });
+                        Console.WriteLine($"New release: {repo.Name} (Beta) {repo.LatestBeta.Name}");
+                    }
+                }
+
+                if (newReleaseEmbeds.Count > 0) {
+                    await discord.SendMessageAsync(text: "New plugin releases", embeds: newReleaseEmbeds.Select(e => e.Build()));
+                }
+
+                discord.Dispose();
             }
             catch (Exception e) {
                 Console.WriteLine($"Error building index: {e.Message}");
@@ -99,9 +135,7 @@ namespace Chorizite.PluginIndexBuilder {
 
         private async Task GetReleases(ReleasesObj releases) {
             try {
-                Console.WriteLine($"----------- Chorizite ----------");
                 var allReleases = await _client.Repository.Release.GetAll("Chorizite", "Chorizite");
-                Console.WriteLine($"----------- Chorizite ----------:");
                 var release = allReleases.First();
                 var asset =  release.Assets.FirstOrDefault(a => !a.Name.Contains("Source code") && a.Name.Contains("Installer"));
 
@@ -129,7 +163,7 @@ namespace Chorizite.PluginIndexBuilder {
             Directory.CreateDirectory(options.WorkDirectory);
         }
 
-        private void BuildHtml(List<RespositoryInfo> releaseResults, string outFile) {
+        private void BuildHtml(List<RepositoryInfo> releaseResults, string outFile) {
             var body = new StringBuilder();
 
             foreach (var release in releaseResults) {

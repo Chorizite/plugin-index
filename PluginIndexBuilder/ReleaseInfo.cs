@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Chorizite.PluginIndexBuilder {
     public class ReleaseInfo {
-        private RespositoryInfo respositoryInfo;
+        private RepositoryInfo repositoryInfo;
         private Release release;
         internal string manifestPath;
         private ReleaseAsset asset;
@@ -21,14 +21,19 @@ namespace Chorizite.PluginIndexBuilder {
         public string Version { get; set; } = "";
         public string Changelog { get; set; } = "";
         public string DownloadUrl { get; set; } = "";
-        public DateTime Date { get; private set; }
+        public DateTime Date { get; set; }
+        public JsonObject Manifest { get; set; }
 
-        public ReleaseInfo(RespositoryInfo respositoryInfo, Release release, ReleaseAsset asset, string manifestPath) {
-            this.respositoryInfo = respositoryInfo;
+        public bool IsNew => repositoryInfo?.ExistingReleaseInfo?.Releases.Find(r => r.Version == Version) == null;
+
+        public ReleaseInfo(RepositoryInfo respositoryInfo, Release release, ReleaseAsset asset, string manifestPath) {
+            this.repositoryInfo = respositoryInfo;
             this.release = release;
             this.manifestPath = manifestPath;
             this.asset = asset;
         }
+
+        public ReleaseInfo() { }
 
         internal async Task Build() {
             try {
@@ -45,6 +50,7 @@ namespace Chorizite.PluginIndexBuilder {
                 Changelog = release.Body;
                 DownloadUrl = asset.BrowserDownloadUrl;
                 Date = (release.PublishedAt ?? release.CreatedAt).UtcDateTime;
+                Manifest = manifest;
             }
             catch (Exception e) {
                 Console.WriteLine($"Error building release: {e.Message}");
@@ -52,7 +58,7 @@ namespace Chorizite.PluginIndexBuilder {
         }
 
         private void Log(string v) {
-            Console.WriteLine($"[{respositoryInfo.repoPath}@{release.TagName}] {v}");
+            Console.WriteLine($"[{repositoryInfo.repoPath}@{release.TagName}] {v}");
         }
     }
 }

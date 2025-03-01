@@ -32,7 +32,7 @@ namespace Chorizite.PluginIndexBuilder {
                 }
 
                 var indexBuilder = new IndexBuilder(o);
-                indexBuilder.Build();
+                indexBuilder.Build().Wait();
             }).WithNotParsed(errs => DisplayHelp(parserResult, errs)); ;
         }
         static void DisplayHelp<T>(ParserResult<T> result, IEnumerable<Error> errs) {
