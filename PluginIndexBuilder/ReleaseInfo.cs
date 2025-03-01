@@ -1,6 +1,7 @@
 ﻿using Octokit;
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
@@ -10,6 +11,7 @@ namespace Chorizite.PluginIndexBuilder {
         private Release release;
         internal string manifestPath;
         private ReleaseAsset asset;
+        private string zipPath;
         internal string manifestVersion;
         internal string manifestName;
         internal string manifestDescription;
@@ -23,14 +25,16 @@ namespace Chorizite.PluginIndexBuilder {
         public string DownloadUrl { get; set; } = "";
         public DateTime Date { get; set; }
         public JsonObject Manifest { get; set; }
+        public string Hash { get; set; } = "";
 
         public bool IsNew => repositoryInfo?.ExistingReleaseInfo?.Releases.Find(r => r.Version == Version) == null;
 
-        public ReleaseInfo(RepositoryInfo respositoryInfo, Release release, ReleaseAsset asset, string manifestPath) {
+        public ReleaseInfo(RepositoryInfo respositoryInfo, Release release, ReleaseAsset asset, string manifestPath, string zipPath) {
             this.repositoryInfo = respositoryInfo;
             this.release = release;
             this.manifestPath = manifestPath;
             this.asset = asset;
+            this.zipPath = zipPath;
         }
 
         public ReleaseInfo() { }
@@ -51,9 +55,18 @@ namespace Chorizite.PluginIndexBuilder {
                 DownloadUrl = asset.BrowserDownloadUrl;
                 Date = (release.PublishedAt ?? release.CreatedAt).UtcDateTime;
                 Manifest = manifest;
+                Hash = CalculateMD5(zipPath);
             }
             catch (Exception e) {
                 Console.WriteLine($"Error building release: {e.Message}");
+            }
+        }
+        static string CalculateMD5(string filename) {
+            using (var md5 = MD5.Create()) {
+                using (var stream = File.OpenRead(filename)) {
+                    var hash = md5.ComputeHash(stream);
+                    return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+                }
             }
         }
 

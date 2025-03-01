@@ -196,19 +196,19 @@ namespace Chorizite.PluginIndexBuilder {
                     return;
                 }
 
-                var releasePath = await DownloadAndExtractRelease(release, asset);
-                if (string.IsNullOrEmpty(releasePath)) {
+                var x = await DownloadAndExtractRelease(release, asset);
+                if (string.IsNullOrEmpty(x.Item1)) {
                     Log($"Error: No zip found for release: {release.TagName}");
                     return;
                 }
 
-                var manifestPath = FindManifestFile(releasePath);
+                var manifestPath = FindManifestFile(x.Item1);
                 if (string.IsNullOrEmpty(manifestPath)) {
                     Log($"Error: No manifest found for release: {release.TagName}");
                     return;
                 }
 
-                var releaseInfo = await BuildReleaseInfo(release, asset, manifestPath);
+                var releaseInfo = await BuildReleaseInfo(release, asset, manifestPath, x.Item2);
                 releaseInfos.Add(releaseInfo);
             }
             catch (Exception e) {
@@ -216,8 +216,8 @@ namespace Chorizite.PluginIndexBuilder {
             }
         }
 
-        private async Task<ReleaseInfo> BuildReleaseInfo(Release release, ReleaseAsset asset, string manifestPath) {
-            var releaseInfo = new ReleaseInfo(this, release, asset, manifestPath);
+        private async Task<ReleaseInfo> BuildReleaseInfo(Release release, ReleaseAsset asset, string manifestPath, string zipPath) {
+            var releaseInfo = new ReleaseInfo(this, release, asset, manifestPath, zipPath);
             await releaseInfo.Build();
             return releaseInfo;
         }
@@ -226,7 +226,7 @@ namespace Chorizite.PluginIndexBuilder {
             return release.Assets.FirstOrDefault(a => !a.Name.Contains("Source code") && a.Name.EndsWith(".zip"));
         }
 
-        private async Task<string?> DownloadAndExtractRelease(Release release, ReleaseAsset zip) {
+        private async Task<Tuple<string, string>> DownloadAndExtractRelease(Release release, ReleaseAsset zip) {
             try {
                 var dirName = release.TagName.Split('/').Last();
                 var zipPath = Path.Combine(workDirectory, $"{dirName}.zip");
@@ -244,10 +244,11 @@ namespace Chorizite.PluginIndexBuilder {
                 }
 
                 Directory.CreateDirectory(extractPath);
-                await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, extractPath));
+                var p = zipPath;
+                await Task.Run(() => ZipFile.ExtractToDirectory(p, extractPath));
                 if (options.Verbose) Log($"Extracted: {zip.Name}: {extractPath}");
 
-                return extractPath;
+                return new Tuple<string, string>(extractPath, zipPath);
             }
             catch (Exception e) {
                 Log($"Error downloading release ({release.Name}): {e.Message}");

@@ -36,6 +36,7 @@ jobs:
         env: 
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           GH_USER: ${{ secrets.GH_USER }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           # build
           cd "${{ github.workspace }}/PluginIndexBuilder"
