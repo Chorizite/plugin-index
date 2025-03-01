@@ -132,7 +132,8 @@ namespace Chorizite.PluginIndexBuilder {
                         Title = $"{repo.Name}",
                         Description = string.Join("\n", assetChanges),
                         Color = Color.Red,
-                        Url = repo.RepoUrl
+                        Url = repo.RepoUrl,
+                        ThumbnailUrl = $"https://chorizite.github.io/plugin-index/plugins/{repo.Name}.png"
                     });
                 }
             }
@@ -151,7 +152,11 @@ namespace Chorizite.PluginIndexBuilder {
                             Title = $"{repo.Name} {repo.Latest.Name}",
                             Description = repo.Latest.Changelog,
                             Color = Color.Green,
-                            Url = repo.RepoUrl
+                            Url = repo.RepoUrl,
+                            Author = new EmbedAuthorBuilder {
+                                Name = repo.Name,
+                                IconUrl = $"https://chorizite.github.io/plugin-index/plugins/{repo.Name}.png",
+                            }
                         });
                         Console.WriteLine($"New release: {repo.Name} {repo.Latest.Name}");
                     }
@@ -160,14 +165,15 @@ namespace Chorizite.PluginIndexBuilder {
                             Title = $"[beta] {repo.Name} v{repo.LatestBeta.Name}",
                             Description = repo.LatestBeta.Changelog,
                             Color = Color.Teal,
-                            Url = repo.RepoUrl
+                            Url = repo.RepoUrl,
+                            ImageUrl = $"https://chorizite.github.io/plugin-index/plugins/{repo.Name}.png"
                         });
                         Console.WriteLine($"New release: {repo.Name} (Beta) {repo.LatestBeta.Name}");
                     }
                 }
 
                 if (newReleaseEmbeds.Count > 0) {
-                    await discord.SendMessageAsync(text: "New plugin releases", embeds: newReleaseEmbeds.Select(e => e.Build()));
+                    await discord.SendMessageAsync(text: "New plugin releases!", embeds: newReleaseEmbeds.Select(e => e.Build()));
                 }
             }
             catch (Exception e) {
