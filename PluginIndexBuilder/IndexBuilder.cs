@@ -128,7 +128,7 @@ namespace Chorizite.PluginIndexBuilder {
                 }
                 if (assetChanges.Count > 0) {
                     assetChangeEmbeds.Add(new EmbedBuilder {
-                        Title = $"{repo.Name} {repo.Latest.Name}",
+                        Title = $"{repo.Name}",
                         Description = string.Join("\n", assetChanges),
                     });
                 }
