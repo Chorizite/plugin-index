@@ -133,7 +133,10 @@ namespace Chorizite.PluginIndexBuilder {
                         Description = string.Join("\n", assetChanges),
                         Color = Color.Red,
                         Url = repo.RepoUrl,
-                        ThumbnailUrl = $"https://chorizite.github.io/plugin-index/plugins/{repo.Name}.png"
+                        Author = new EmbedAuthorBuilder {
+                            Name = repo.Name,
+                            IconUrl = $"https://chorizite.github.io/plugin-index/plugins/{repo.Name}.png",
+                        }
                     });
                 }
             }
@@ -166,7 +169,10 @@ namespace Chorizite.PluginIndexBuilder {
                             Description = repo.LatestBeta.Changelog,
                             Color = Color.Teal,
                             Url = repo.RepoUrl,
-                            ImageUrl = $"https://chorizite.github.io/plugin-index/plugins/{repo.Name}.png"
+                            Author = new EmbedAuthorBuilder {
+                                Name = repo.Name,
+                                IconUrl = $"https://chorizite.github.io/plugin-index/plugins/{repo.Name}.png",
+                            }
                         });
                         Console.WriteLine($"New release: {repo.Name} (Beta) {repo.LatestBeta.Name}");
                     }
