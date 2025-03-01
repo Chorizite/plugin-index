@@ -5,6 +5,10 @@ using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
 using Octokit;
 using Octokit.Internal;
+using SixLabors.Fonts;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Drawing.Processing;
+using SixLabors.ImageSharp.Processing;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -79,9 +83,40 @@ namespace Chorizite.PluginIndexBuilder {
                 await GetReleases();
                 await GetExistingReleaseInfo();
                 await MirrorPackages();
+                await CopyIcon();
             }
             catch (Exception e) {
                 Log($"Error During build: {e.Message}");
+            }
+        }
+
+        private async Task CopyIcon() {
+            var icon = Latest.Manifest["icon"]?.ToString();
+
+            if (string.IsNullOrWhiteSpace(icon) || !File.Exists(Path.Combine(Path.GetDirectoryName(Latest.manifestPath), icon))) {
+                using var image = Image.Load(Path.Combine(Path.GetDirectoryName(GetType().Assembly.Location), "default-icon.png"));
+                FontCollection collection = new();
+                collection.Add(Path.Combine(Path.GetDirectoryName(GetType().Assembly.Location), "Fonts", "Roboto.ttf"));
+
+                if (collection.TryGet("Roboto", out FontFamily family)) {
+                    Font font = family.CreateFont(62, FontStyle.Bold);
+                    var text = Name.First().ToString();
+                    var options = new TextOptions(font) {
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    FontRectangle rect = TextMeasurer.MeasureAdvance(text, options);
+                    image.Mutate(img => {
+                        img.DrawText(text, font, Color.Magenta, new PointF(image.Width / 2 - rect.Width / 2, image.Height / 2 - rect.Height / 2));
+                    });
+                }
+                image.SaveAsPng(Path.Combine(workDirectory, "icon.png"));
+            }
+            else {
+                var iconPath = Path.Combine(Path.GetDirectoryName(Latest.manifestPath), icon);
+                using var image = Image.Load(iconPath);
+
+                image.SaveAsPng(Path.Combine(workDirectory, "icon.png"));
             }
         }
 

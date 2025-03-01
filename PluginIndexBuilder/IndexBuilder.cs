@@ -100,6 +100,7 @@ namespace Chorizite.PluginIndexBuilder {
                     var repoJsonPath = Path.Combine(options.OutputDirectory, "plugins", $"{repo.Name}.json");
                     var repoJson = JsonSerializer.Serialize(repo, jsonRepoOpts);
                     File.WriteAllText(repoJsonPath, repoJson);
+                    File.Copy(Path.Combine(repo.workDirectory, "icon.png"), Path.Combine(options.OutputDirectory, "plugins", $"{repo.Name}.png"));
                 }
 
                 BuildHtml(releasesObj.Plugins.Values.ToList(), Path.Combine(options.OutputDirectory, "index.html"));
@@ -130,12 +131,14 @@ namespace Chorizite.PluginIndexBuilder {
                     assetChangeEmbeds.Add(new EmbedBuilder {
                         Title = $"{repo.Name}",
                         Description = string.Join("\n", assetChanges),
+                        Color = Color.Red,
+                        Url = repo.RepoUrl
                     });
                 }
             }
 
             if (assetChangeEmbeds.Count > 0) {
-                await discord.SendMessageAsync(text: "Plugin release assets changed!", embeds: assetChangeEmbeds.Select(e => e.Build()));
+                await discord.SendMessageAsync(text: ":warning: Plugin release assets changed! :warning:", embeds: assetChangeEmbeds.Select(e => e.Build()));
             }
         }
 
@@ -147,6 +150,8 @@ namespace Chorizite.PluginIndexBuilder {
                         newReleaseEmbeds.Add(new EmbedBuilder {
                             Title = $"{repo.Name} {repo.Latest.Name}",
                             Description = repo.Latest.Changelog,
+                            Color = Color.Green,
+                            Url = repo.RepoUrl
                         });
                         Console.WriteLine($"New release: {repo.Name} {repo.Latest.Name}");
                     }
@@ -154,6 +159,8 @@ namespace Chorizite.PluginIndexBuilder {
                         newReleaseEmbeds.Add(new EmbedBuilder {
                             Title = $"[beta] {repo.Name} v{repo.LatestBeta.Name}",
                             Description = repo.LatestBeta.Changelog,
+                            Color = Color.Teal,
+                            Url = repo.RepoUrl
                         });
                         Console.WriteLine($"New release: {repo.Name} (Beta) {repo.LatestBeta.Name}");
                     }

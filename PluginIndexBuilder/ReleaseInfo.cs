@@ -13,7 +13,7 @@ namespace Chorizite.PluginIndexBuilder {
         private Release release;
         internal string manifestPath;
         private ReleaseAsset asset;
-        private string zipPath;
+        internal string zipPath;
         internal string manifestVersion;
         internal string manifestName;
         internal string manifestDescription;
