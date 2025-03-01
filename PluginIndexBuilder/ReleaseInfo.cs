@@ -1,6 +1,7 @@
 ﻿using Octokit;
 using System;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -30,6 +31,9 @@ namespace Chorizite.PluginIndexBuilder {
 
         [JsonIgnore]
         public bool IsNew => repositoryInfo?.ExistingReleaseInfo?.Releases.Find(r => r.Version == Version) == null;
+
+        [JsonIgnore]
+        public string OldHash => repositoryInfo?.ExistingReleaseInfo?.Releases.FirstOrDefault(r => r.Version == Version).Hash;
 
         public ReleaseInfo(RepositoryInfo respositoryInfo, Release release, ReleaseAsset asset, string manifestPath, string zipPath) {
             this.repositoryInfo = respositoryInfo;

@@ -115,7 +115,28 @@ namespace Chorizite.PluginIndexBuilder {
         }
 
         private async Task PostPluginReleaseAssetModifications(IEnumerable<RepositoryInfo> releaseResults) {
-            
+
+            var assetChangeEmbeds = new List<EmbedBuilder>();
+            foreach (var repo in releaseResults) {
+                var assetChanges = new List<string>();
+                foreach (var release in repo.Releases) {
+                    if (release.IsNew) continue;
+
+                    if (release.OldHash != release.Hash) {
+                        assetChanges.Add($"Changed {release.Name} Asset ({release.OldHash} -> {release.Hash})");
+                    }
+                }
+                if (assetChanges.Count > 0) {
+                    assetChangeEmbeds.Add(new EmbedBuilder {
+                        Title = $"{repo.Name} {repo.Latest.Name}",
+                        Description = string.Join("\n", assetChanges),
+                    });
+                }
+            }
+
+            if (assetChangeEmbeds.Count > 0) {
+                await discord.SendMessageAsync(text: "Plugin release assets changed!", embeds: assetChangeEmbeds.Select(e => e.Build()));
+            }
         }
 
         private async Task PostPluginUpdates(IEnumerable<RepositoryInfo> releaseResults) {
