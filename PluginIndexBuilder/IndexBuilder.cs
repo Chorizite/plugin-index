@@ -104,6 +104,22 @@ namespace Chorizite.PluginIndexBuilder {
 
                 BuildHtml(releasesObj.Plugins.Values.ToList(), Path.Combine(options.OutputDirectory, "index.html"));
 
+                await PostPluginUpdates(releaseResults);
+                await PostPluginReleaseAssetModifications(releaseResults);
+
+                discord.Dispose();
+            }
+            catch (Exception e) {
+                Console.WriteLine($"Error building index: {e.Message}");
+            }
+        }
+
+        private async Task PostPluginReleaseAssetModifications(IEnumerable<RepositoryInfo> releaseResults) {
+            
+        }
+
+        private async Task PostPluginUpdates(IEnumerable<RepositoryInfo> releaseResults) {
+            try {
                 var newReleaseEmbeds = new List<EmbedBuilder>();
                 foreach (var repo in releaseResults) {
                     if (repo.Latest?.IsNew == true) {
@@ -125,11 +141,9 @@ namespace Chorizite.PluginIndexBuilder {
                 if (newReleaseEmbeds.Count > 0) {
                     await discord.SendMessageAsync(text: "New plugin releases", embeds: newReleaseEmbeds.Select(e => e.Build()));
                 }
-
-                discord.Dispose();
             }
             catch (Exception e) {
-                Console.WriteLine($"Error building index: {e.Message}");
+                Console.WriteLine($"Error posting plugin updates: {e.Message}");
             }
         }
 

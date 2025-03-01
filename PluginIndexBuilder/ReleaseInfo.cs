@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace Chorizite.PluginIndexBuilder {
@@ -27,6 +28,7 @@ namespace Chorizite.PluginIndexBuilder {
         public JsonObject Manifest { get; set; }
         public string Hash { get; set; } = "";
 
+        [JsonIgnore]
         public bool IsNew => repositoryInfo?.ExistingReleaseInfo?.Releases.Find(r => r.Version == Version) == null;
 
         public ReleaseInfo(RepositoryInfo respositoryInfo, Release release, ReleaseAsset asset, string manifestPath, string zipPath) {
