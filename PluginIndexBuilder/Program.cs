@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 
 namespace Chorizite.PluginIndexBuilder {
     public class Options {
@@ -11,21 +12,25 @@ namespace Chorizite.PluginIndexBuilder {
         public bool Verbose { get; set; }
 
         [Option('o', "output", Required = false, HelpText = "Output directory", Default = "out")]
-        public string OutputDirectory { get; set; }
+        public string OutputDirectory { get; set; } = "out";
 
         [Option('w', "workdir", Required = false, HelpText = "Work directory", Default = "tmp")]
-        public string WorkDirectory { get; set; }
+        public string WorkDirectory { get; set; } = "tmp";
 
         [Value(0, MetaName = "repos-json-file", Required = true, HelpText = "Path to repositories.json")]
-        public string RespositoriesJsonPath { get; set; }
+        public string RespositoriesJsonPath { get; set; } = "respositories.json";
     }
 
     internal class Program {
+        internal static Options? Options { get; set; }
+        internal static readonly HttpClient http = new HttpClient();
+
         static void Main(string[] args) {
             var parser = new Parser(with => with.HelpWriter = null);
             var parserResult = parser.ParseArguments<Options>(args);
 
             parserResult.WithParsed<Options>(o => {
+                Options = o;
                 if (!File.Exists(o.RespositoriesJsonPath)) {
                     Console.WriteLine($"File does not exist: {o.RespositoriesJsonPath}");
                     return;

@@ -27,7 +27,6 @@ using System.Threading.Tasks;
 
 namespace Chorizite.PluginIndexBuilder {
     public class RepositoryInfo {
-        internal static readonly HttpClient http = new HttpClient();
 
         internal Options options;
         internal GitHubClient client;
@@ -41,9 +40,10 @@ namespace Chorizite.PluginIndexBuilder {
         internal string workDirectory => Path.Combine(options.WorkDirectory, repoOwner, repoName);
         internal ConcurrentBag<ReleaseInfo> releaseInfos = new ConcurrentBag<ReleaseInfo>();
 
-        public string Name { get; set; }
-        public string PackageId => IsCorePlugin ? $"Chorizite.Plugins.{Name}" : Name ;
-        public bool IsCorePlugin => CorePlugins.Contains(Name);
+        public string Id { get; set; }
+        public string Name => Latest?.manifestName ?? "";
+        public string PackageId => IsCorePlugin ? $"Chorizite.Plugins.{Id}" : Id ;
+        public bool IsCorePlugin => CorePlugins.Contains(Id);
 
         private SourceCacheContext nugetCache;
 
@@ -56,20 +56,20 @@ namespace Chorizite.PluginIndexBuilder {
         [JsonIgnore]
         public RepositoryInfo? ExistingReleaseInfo { get; private set; }
 
-        public List<ReleaseInfo>? Releases { get; set; } = [];
+        public List<ReleaseInfo> Releases { get; set; } = [];
         private IReadOnlyList<PackageVersion>? _versions;
         private IEnumerable<NuGetVersion> nugetVersions;
         private SourceRepository nugetRepo;
 
         public RepositoryInfo() { }
 
-        public RepositoryInfo(string name, string repoUrl, Octokit.GitHubClient client, Options options) {
+        public RepositoryInfo(string id, string repoUrl, Octokit.GitHubClient client, Options options) {
             this.RepoUrl = repoUrl;
             this.options = options;
             this.client = client;
-            _log = new Logger(name);
+            _log = new Logger(id);
 
-            Name = name;
+            Id = id;
 
             nugetCache = new SourceCacheContext();
             nugetCache.NoCache = true;
@@ -82,12 +82,18 @@ namespace Chorizite.PluginIndexBuilder {
                 Directory.CreateDirectory(workDirectory);
                 await GetReleases();
                 await GetExistingReleaseInfo();
-                await MirrorPackages();
-                await CopyIcon();
+                if (Latest is not null) {
+                    await MirrorPackages();
+                    await CopyIcon();
+                }
             }
             catch (Exception e) {
-                Log($"Error During build: {e.Message}");
+                Log($"Error During build: {e}");
             }
+        }
+
+        private async Task<ReleaseAsset?> GetReleaseAsset(Release release) {
+            return release.Assets.FirstOrDefault(a => !a.Name.Contains("Source code") && a.Name.EndsWith(".zip"));
         }
 
         private async Task CopyIcon() {
@@ -100,7 +106,7 @@ namespace Chorizite.PluginIndexBuilder {
 
                 if (collection.TryGet("Roboto", out FontFamily family)) {
                     Font font = family.CreateFont(62, FontStyle.Bold);
-                    var text = Name.First().ToString();
+                    var text = Id.First().ToString();
                     var options = new TextOptions(font) {
                         HorizontalAlignment = HorizontalAlignment.Center,
                         VerticalAlignment = VerticalAlignment.Center
@@ -134,7 +140,7 @@ namespace Chorizite.PluginIndexBuilder {
                     if (options.Verbose) Log($"Package {PackageId}-{r.manifestVersion} already exists: ({string.Join(", ", nugetVersions.Select(v => v.ToNormalizedString()))})");
                     return;
                 }
-                Log($"Package ({Name}:{IsCorePlugin}){PackageId}-{r.manifestVersion} needs mirroring");
+                Log($"Package ({Id}:{IsCorePlugin}){PackageId}-{r.manifestVersion} needs mirroring");
 
                 var nugetUrl = $"https://nuget.pkg.github.com/{repoOwner}/download/{PackageId}/{r.manifestVersion}/{PackageId}.{r.manifestVersion}.nupkg";
                 var authHeader = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{IndexBuilder.GithubUser}:{IndexBuilder.GithubToken}"));
@@ -144,7 +150,7 @@ namespace Chorizite.PluginIndexBuilder {
                 using (var request = new HttpRequestMessage(HttpMethod.Get, nugetUrl)) {
                     request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authHeader);
 
-                    using (var response = await http.SendAsync(request)) {
+                    using (var response = await Program.http.SendAsync(request)) {
                         if (!response.IsSuccessStatusCode) {
                             Log($"Error downloading nuget package ({PackageId}-{r.manifestVersion}): {response.StatusCode}");
                             return;
@@ -180,10 +186,11 @@ namespace Chorizite.PluginIndexBuilder {
 
         private async Task GetExistingReleaseInfo() {
             try {
+                return;
                 if (Latest is null) return;
 
                 //if (options.Verbose) Log($"Downloading: ");
-                using (var response = await http.GetAsync($"https://chorizite.github.io/plugin-index/plugins/{Latest.manifestName}.json")) {
+                using (var response = await Program.http.GetAsync($"https://chorizite.github.io/plugin-index/plugins/{Latest.manifestName}.json")) {
                     if (!response.IsSuccessStatusCode) {
                         Log($"Error getting existing release info: {response.StatusCode}");
                         return;
@@ -231,19 +238,7 @@ namespace Chorizite.PluginIndexBuilder {
                     return;
                 }
 
-                var x = await DownloadAndExtractRelease(release, asset);
-                if (string.IsNullOrEmpty(x.Item1)) {
-                    Log($"Error: No zip found for release: {release.TagName}");
-                    return;
-                }
-
-                var manifestPath = FindManifestFile(x.Item1);
-                if (string.IsNullOrEmpty(manifestPath)) {
-                    Log($"Error: No manifest found for release: {release.TagName}");
-                    return;
-                }
-
-                var releaseInfo = await BuildReleaseInfo(release, asset, manifestPath, x.Item2);
+                var releaseInfo = await BuildReleaseInfo(release, asset);
                 releaseInfos.Add(releaseInfo);
             }
             catch (Exception e) {
@@ -251,70 +246,13 @@ namespace Chorizite.PluginIndexBuilder {
             }
         }
 
-        private async Task<ReleaseInfo> BuildReleaseInfo(Release release, ReleaseAsset asset, string manifestPath, string zipPath) {
-            var releaseInfo = new ReleaseInfo(this, release, asset, manifestPath, zipPath);
+        private async Task<ReleaseInfo> BuildReleaseInfo(Release release, ReleaseAsset asset) {
+            var releaseInfo = new ReleaseInfo(this, release, asset);
             await releaseInfo.Build();
             return releaseInfo;
         }
 
-        private async Task<ReleaseAsset?> GetReleaseAsset(Release release) {
-            return release.Assets.FirstOrDefault(a => !a.Name.Contains("Source code") && a.Name.EndsWith(".zip"));
-        }
-
-        private async Task<Tuple<string, string>> DownloadAndExtractRelease(Release release, ReleaseAsset zip) {
-            try {
-                var dirName = release.TagName.Split('/').Last();
-                var zipPath = Path.Combine(workDirectory, $"{dirName}.zip");
-                var extractPath = Path.Combine(workDirectory, $"{dirName}");
-
-                if (File.Exists(zipPath)) File.Delete(zipPath);
-                if (Directory.Exists(extractPath)) Directory.Delete(extractPath, true);
-
-                if (options.Verbose) Log($"Downloading: {zip.Name}: {zip.BrowserDownloadUrl} -> {zipPath}");
-                using (var response = await http.GetAsync(zip.BrowserDownloadUrl)) {
-                    response.EnsureSuccessStatusCode();
-                    using (var fileStream = File.Create(zipPath)) {
-                        await response.Content.CopyToAsync(fileStream);
-                    }
-                }
-
-                Directory.CreateDirectory(extractPath);
-                var p = zipPath;
-                await Task.Run(() => ZipFile.ExtractToDirectory(p, extractPath));
-                if (options.Verbose) Log($"Extracted: {zip.Name}: {extractPath}");
-
-                return new Tuple<string, string>(extractPath, zipPath);
-            }
-            catch (Exception e) {
-                Log($"Error downloading release ({release.Name}): {e.Message}");
-                return null;
-            }
-        }
-
-        private string? FindManifestFile(string rootDirectory, string searchPattern = "manifest.json") {
-            if (string.IsNullOrEmpty(rootDirectory))
-                throw new ArgumentException("Root directory cannot be null or empty", nameof(rootDirectory));
-
-            if (!Directory.Exists(rootDirectory))
-                throw new DirectoryNotFoundException($"Directory not found: {rootDirectory}");
-
-            // First, search in the current directory
-            var manifestInCurrentDir = Directory.GetFiles(rootDirectory, searchPattern, SearchOption.TopDirectoryOnly)
-                .FirstOrDefault();
-
-            if (manifestInCurrentDir != null)
-                return manifestInCurrentDir;
-
-            foreach (var dir in Directory.GetDirectories(rootDirectory)) {
-                var manifestInSubDir = FindManifestFile(dir, searchPattern);
-                if (manifestInSubDir != null)
-                    return manifestInSubDir;
-            }
-
-            return null;
-        }
-
-        private void Log(string v) {
+        internal void Log(string v) {
             Console.WriteLine($"[{repoPath}] {v}");
         }
     }
