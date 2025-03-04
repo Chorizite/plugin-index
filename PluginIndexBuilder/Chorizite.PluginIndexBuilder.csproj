@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Chorizite.Core" Version="0.0.13-beta.1" />
+    <PackageReference Include="Chorizite.Core" Version="0.0.13-beta.4" />
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
     <PackageReference Include="Discord.Net.Webhook" Version="3.17.1" />
     <PackageReference Include="NJsonSchema" Version="11.1.0" />
