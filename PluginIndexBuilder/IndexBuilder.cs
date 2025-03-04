@@ -126,7 +126,8 @@ namespace Chorizite.PluginIndexBuilder {
                     Dependencies = r.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
                     Environments = r.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
                     Changelog = r.Changelog,
-                    Version = r.Version
+                    Version = r.Version,
+                    HasReleaseModifications = false
                 };
 
                 releases.Add(model);
