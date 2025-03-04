@@ -40,7 +40,7 @@ jobs:
         run: |
           # build
           cd "${{ github.workspace }}/PluginIndexBuilder"
-          dotnet nuget add source --username ${{ github.repository_owner }} --password ${{ github.token }} --store-password-in-clear-text --name chorizite "https://nuget.pkg.github.com/chorizite/index.json"
+          dotnet nuget add source --username Chorizite --password ${{ secrets.CI_NUGET_API_KEY }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/Chorizite/index.json"
           dotnet restore
           dotnet build -c Release --no-restore
           cd "${{ github.workspace }}"
