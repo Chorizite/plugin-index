@@ -1,4 +1,5 @@
 ﻿using NJsonSchema.Annotations;
+using System.Collections.Generic;
 
 namespace Chorizite.PluginIndexBuilder.Models {
     [JsonSchemaExtensionData("description", "Information about a plugin, used for the index page")]
@@ -23,6 +24,12 @@ namespace Chorizite.PluginIndexBuilder.Models {
 
         [JsonSchemaExtensionData("description", "True if this is an official plugin, false otherwise.")]
         public required bool IsOfficial { get; set; }
+
+        [JsonSchemaExtensionData("description", "The dependencies for this release.")]
+        public required List<string> Dependencies { get; set; }
+
+        [JsonSchemaExtensionData("description", "The environments this release supports.")]
+        public required List<string> Environments { get; set; }
 
         [JsonSchemaExtensionData("description", "The total number of downloads for this plugin.")]
         public required int TotalDownloads { get; set; }

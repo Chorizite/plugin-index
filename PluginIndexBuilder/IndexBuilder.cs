@@ -139,6 +139,8 @@ namespace Chorizite.PluginIndexBuilder {
                 Author = plugin.Author,
                 Website = plugin.Website,
                 Description = plugin.Description,
+                Dependencies = plugin.Latest.Dependencies,
+                Environments = plugin.Latest.Environments,
                 IsDefault = plugin.IsDefault,
                 IsOfficial = plugin.IsOfficial,
                 TotalDownloads = plugin.TotalDownloads,
@@ -163,12 +165,16 @@ namespace Chorizite.PluginIndexBuilder {
                     Author = r.Author,
                     IsDefault = r.IsCorePlugin,
                     IsOfficial = r.repoOwner == "Chorizite",
+                    Dependencies = r.Latest?.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
+                    Environments = r.Latest?.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
                     TotalDownloads = r.Releases.Sum(re => re.asset.DownloadCount),
                     Latest = new() {
                         Version = r.Latest!.Version,
                         DownloadUrl = r.Latest.DownloadUrl,
                         Sha256 = await CalculateSha256(r.Latest.zipPath),
-                        Downloads = r.Releases.First(re => re.Version == r.Latest.Version).asset.DownloadCount,
+                        Downloads = r.Latest.asset.DownloadCount,
+                        Environments = r.Latest.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
+                        Dependencies = r.Latest.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
                         Created = r.Latest.asset.CreatedAt.UtcDateTime,
                         Updated = r.Latest.asset.UpdatedAt.UtcDateTime,
                         HasReleaseModifications = false
@@ -177,7 +183,9 @@ namespace Chorizite.PluginIndexBuilder {
                         Version = r.LatestBeta.Version,
                         DownloadUrl = r.LatestBeta.DownloadUrl,
                         Sha256 = await CalculateSha256(r.LatestBeta.zipPath),
-                        Downloads = r.Releases.First(re => re.Version == r.LatestBeta.Version).asset.DownloadCount,
+                        Downloads = r.LatestBeta.asset.DownloadCount,
+                        Dependencies = r.LatestBeta.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
+                        Environments = r.LatestBeta.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
                         Created = r.LatestBeta.asset.CreatedAt.UtcDateTime,
                         Updated = r.LatestBeta.asset.UpdatedAt.UtcDateTime,
                         HasReleaseModifications = false
@@ -308,6 +316,8 @@ namespace Chorizite.PluginIndexBuilder {
                     Downloads = asset.DownloadCount,
                     Created = asset.CreatedAt.UtcDateTime,
                     Updated = asset.UpdatedAt.UtcDateTime,
+                    Dependencies = [],
+                    Environments = [],
                     HasReleaseModifications = false
                 },
                 LatestBeta = null

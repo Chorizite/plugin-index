@@ -1,5 +1,6 @@
 ﻿using NJsonSchema.Annotations;
 using System;
+using System.Collections.Generic;
 
 namespace Chorizite.PluginIndexBuilder.Models {
     public class ReleaseModel {
@@ -15,6 +16,12 @@ namespace Chorizite.PluginIndexBuilder.Models {
 
         [JsonSchemaExtensionData("description", "Number of downloads for this release.")]
         public required int Downloads { get; set; }
+
+        [JsonSchemaExtensionData("description", "The dependencies for this release.")]
+        public required List<string> Dependencies { get; set; }
+
+        [JsonSchemaExtensionData("description", "The environments this release supports.")]
+        public required List<string> Environments { get; set; }
 
         [JsonSchemaExtensionData("description", "The date this release was created.")]
         public required DateTime Created { get; set; }

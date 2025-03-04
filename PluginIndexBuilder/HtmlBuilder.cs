@@ -41,6 +41,14 @@ namespace Chorizite.PluginIndexBuilder {
                             <span class="plugin-meta-label">Updated:</span>
                             <span>{release.Updated.ToString("yyyy-MM-dd")}</span>
                         </div>
+                        <div class="plugin-meta-item">
+                            <span class="plugin-meta-label">Environment:</span>
+                            <span>{string.Join(", ", plugin.Environments)}</span>
+                        </div>
+                        <div class="plugin-meta-item">
+                            <span class="plugin-meta-label">Depends On:</span>
+                            <span>{string.Join(", ", plugin.Dependencies)}</span>
+                        </div>
                     </div>
 
                     <div class="plugin-description">

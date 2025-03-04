@@ -28,6 +28,12 @@ namespace Chorizite.PluginIndexBuilder.Models {
         [JsonSchemaExtensionData("description", "The description of the plugin.")]
         public required string Description { get; set; }
 
+        [JsonSchemaExtensionData("description", "The dependencies for this release.")]
+        public required List<string> Dependencies { get; set; }
+
+        [JsonSchemaExtensionData("description", "The environments this release supports.")]
+        public required List<string> Environments { get; set; }
+
         [JsonSchemaExtensionData("description", "True if this plugin is installed by default, false otherwise.")]
         public required bool IsDefault { get; set; }
 
