@@ -1,24 +1,17 @@
-﻿using Chorizite.PluginIndexBuilder.Models;
-using Discord;
+﻿using Discord;
 using Discord.Webhook;
 using Octokit;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Pipes;
 using System.Linq;
-using System.Reflection.Emit;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
-using SixLabors.ImageSharp.Drawing;
-using Chorizite.Core.Plugins;
-using DatReaderWriter.Types;
 using NJsonSchema;
 using NJsonSchema.Generation;
+using Chorizite.Plugins.Models;
 
 namespace Chorizite.PluginIndexBuilder {
     internal class IndexBuilder {
@@ -70,7 +63,7 @@ namespace Chorizite.PluginIndexBuilder {
                 var indexJson = JsonSerializer.Serialize(releaseModel, jsonOpts);
                 File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "index.json"), indexJson);
 
-                var choriziteReleasesJson = JsonSerializer.Serialize(new ChoriziteReleasesModel() {
+                var choriziteReleasesJson = JsonSerializer.Serialize(new ChoriziteDetailsModel() {
                     TotalDownloads = choriziteReleases.Sum(r => r.Downloads),
                     Releases = choriziteReleases
                 }, jsonOpts);
@@ -113,15 +106,17 @@ namespace Chorizite.PluginIndexBuilder {
 
             File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "schemas", "release-index-schema.json"), indexSchemaJson);
 
-            var choriziteReleasesSchema = JsonSchema.FromType<ChoriziteReleasesModel>(settings);
+            var choriziteReleasesSchema = JsonSchema.FromType<ChoriziteDetailsModel>(settings);
             var choriziteReleasesSchemaJson = choriziteReleasesSchema.ToJson(Newtonsoft.Json.Formatting.Indented);
 
-            File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "schemas", "chorizite-releases-schema.json"), choriziteReleasesSchemaJson);
+            File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "schemas", "chorizite-details-schema.json"), choriziteReleasesSchemaJson);
 
             var pluginDetailsSchema = JsonSchema.FromType<PluginDetailsModel>(settings);
             var pluginDetailsSchemaJson = pluginDetailsSchema.ToJson(Newtonsoft.Json.Formatting.Indented);
 
             File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "schemas", "plugin-details-schema.json"), pluginDetailsSchemaJson);
+
+            File.Copy(Path.Combine(Path.GetDirectoryName(GetType().Assembly.Location)!, "schemas", "plugin-manifest-schema.json"), Path.Combine(options.OutputDirectory, "schemas", "plugin-manifest-schema.json"));
         }
 
         private async Task<PluginDetailsModel> BuildPluginDetailsModel(PluginListingModel plugin, RepositoryInfo repo) {

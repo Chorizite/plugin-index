@@ -1,5 +1,5 @@
 ﻿using Chorizite.ACProtocol.Types;
-using Chorizite.PluginIndexBuilder.Models;
+using Chorizite.Plugins.Models;
 using NuGet.Protocol.Plugins;
 using System;
 using System.Collections.Generic;

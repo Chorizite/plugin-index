@@ -1,0 +1,62 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "The id of the plugin. This needs to be unique compared to all other plugins.",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "[a-zA-Z]+[a-zA-Z0-9\\.]+"
+    },
+    "name": {
+      "type": "string",
+      "description": "A friendly display name to use for your plugin."
+    },
+    "author": {
+      "type": "string",
+      "description": "The author of the plugin."
+    },
+    "icon": {
+      "type": "string",
+      "description": "A path to the icon for this plugin, relative to this manifest file."
+    },
+    "entryfile": {
+      "type": "string",
+      "description": "The entry file for this plugin. For DotNet plugins this is the assembly with IPluginCore."
+    },
+    "version": {
+      "type": "string",
+      "description": "Plugin version. You should use semantic versioning for this.",
+      "pattern": "[0-9]+\\.[0-9]+\\.[0-9]+\\(\\-[a-zA-Z0-9_\\-])?"
+    },
+    "description": {
+      "type": "string",
+      "description": "Plugin description"
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "A list of plugins that this plugin depends on.",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "environments": {
+      "type": "array",
+      "description": "The environments this plugin is capable of running under.",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [ "Launcher", "Client" ]
+      }
+    }
+  },
+  "required": [
+    "id",
+    "author",
+    "entryfile",
+    "version",
+    "description",
+    "environments"
+  ]
+}
