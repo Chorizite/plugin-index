@@ -19,6 +19,15 @@ namespace Chorizite.PluginIndexBuilder {
 
             foreach (var plugin in plugins) {
                 var release = plugin.Releases.First();
+                var deps = "";
+                if (plugin.Dependencies.Count > 0) {
+                    deps = $"""
+                            <div class="plugin-meta-item">
+                                <span class="plugin-meta-label">Depends On:</span>
+                                <span>{string.Join(", ", plugin.Dependencies)}</span>
+                            </div>
+                    """;
+                }
                 body.AppendLine($"""
                 <div class="plugin-card">
                     <div class="plugin-header">
@@ -45,10 +54,7 @@ namespace Chorizite.PluginIndexBuilder {
                             <span class="plugin-meta-label">Environment:</span>
                             <span>{string.Join(", ", plugin.Environments)}</span>
                         </div>
-                        <div class="plugin-meta-item">
-                            <span class="plugin-meta-label">Depends On:</span>
-                            <span>{string.Join(", ", plugin.Dependencies)}</span>
-                        </div>
+                        {deps}
                     </div>
 
                     <div class="plugin-description">
