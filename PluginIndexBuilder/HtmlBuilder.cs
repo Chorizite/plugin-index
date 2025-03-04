@@ -1,4 +1,6 @@
-﻿using Chorizite.PluginIndexBuilder.Models;
+﻿using Chorizite.ACProtocol.Types;
+using Chorizite.PluginIndexBuilder.Models;
+using NuGet.Protocol.Plugins;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,21 +17,75 @@ namespace Chorizite.PluginIndexBuilder {
         }
 
         internal string? BuildHtml() {
-            var body = new StringBuilder();
+            var officialPluginHtml = new StringBuilder();
+            var communityPluginHtml = new StringBuilder();
 
-            foreach (var plugin in plugins) {
-                var release = plugin.Releases.First();
-                var deps = "";
-                if (plugin.Dependencies.Count > 0) {
-                    deps = $"""
+            var officialPlugins = plugins.Where(p => p.IsOfficial == true).ToList();
+            var communityPlugins = plugins.Where(p => p.IsOfficial == false).ToList();
+
+            officialPlugins.Sort((p1, p2) => p1.Name.CompareTo(p2.Name));
+            communityPlugins.Sort((p1, p2) => p1.Releases.First().Version.CompareTo(p2.Releases.First().Version));
+
+            foreach (var plugin in officialPlugins) {
+                officialPluginHtml.AppendLine(GetPluginHtml(plugin));
+            }
+
+            foreach (var plugin in communityPlugins) {
+                communityPluginHtml.AppendLine(GetPluginHtml(plugin));
+            }
+
+            var html = $"""
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+       <title>Chorizite Plugin Index</title>
+       <style>
+        {GetStyles()}
+       </style>
+    </head>
+    <body>
+        <div class="container">
+            <header class="header">
+                <h1 class="header-title">Chorizite Plugin Index</h1>
+                <div class="header-info">
+                    <p>Latest Chorizite Release: </p>
+                    <a href="https://github.com/Chorizite/Chorizite/releases/latest" target="_blank" class="release-tag">
+                        {choriziteRelease.Latest.Version}
+                    </a>
+                    <a href="index.json" target="_blank">Releases API</a> |
+                    <a href="chorizite.json" target="_blank">Chorizite Releases API</a>
+                </div>
+            </header>
+            <div class="plugin-list">
+                <h2>Official Plugins</h2>
+                {officialPluginHtml}
+                <h2>Community Plugins</h2>
+                {communityPluginHtml}
+            </div>
+        </div>
+    </body>
+</html>
+""";
+
+            return html;
+        }
+
+        private string? GetPluginHtml(PluginDetailsModel plugin) {
+            var body = new StringBuilder();
+            var release = plugin.Releases.First();
+
+            var deps = "";
+            if (plugin.Dependencies.Count > 0) {
+                deps = $"""
                             <div class="plugin-meta-item">
                                 <span class="plugin-meta-label">Depends On:</span>
                                 <span>{string.Join(", ", plugin.Dependencies)}</span>
                             </div>
                     """;
-                }
-                body.AppendLine($"""
-                <div class="plugin-card">
+            }
+            body.AppendLine($"""
+                <div class="plugin-card{(plugin.IsOfficial ? " official" : "")}">
                     <div class="plugin-header">
                         <img src="./plugins/{plugin.Id}.png" alt="{plugin.Name}" class="plugin-icon">
                         <div class="plugin-header-meta">
@@ -74,9 +130,12 @@ namespace Chorizite.PluginIndexBuilder {
                     </div>
                 </div>
                 """);
-            }
 
-            var style = """
+            return body.ToString();
+        }
+
+        public string GetStyles() {
+            return """
                 :root {
                     --primary-color: #2c3e50;
                     --secondary-color: #3498db;
@@ -153,6 +212,10 @@ namespace Chorizite.PluginIndexBuilder {
                     display: flex;
                     flex-direction: column;
                     gap: 0.75rem;
+                }
+
+                .plugin-card.official {
+                  background-color: #e3f3d6;
                 }
 
                 .plugin-header {
@@ -249,39 +312,6 @@ namespace Chorizite.PluginIndexBuilder {
                     }
                 }
                 """;
-
-            var html = $"""
-<html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-       <title>Chorizite Plugin Index</title>
-       <style>
-        {style}
-       </style>
-    </head>
-    <body>
-        <div class="container">
-            <header class="header">
-                <h1 class="header-title">Chorizite Plugin Index</h1>
-                <div class="header-info">
-                    <p>Latest Chorizite Release: </p>
-                    <a href="https://github.com/Chorizite/Chorizite/releases/latest" target="_blank" class="release-tag">
-                        {choriziteRelease.Latest.Version}
-                    </a>
-                    <a href="index.json" target="_blank">Releases API</a> |
-                    <a href="chorizite.json" target="_blank">Chorizite Releases API</a>
-                </div>
-            </header>
-            <div class="plugin-list">
-                {body}
-            </div>
-        </div>
-    </body>
-</html>
-""";
-
-            return html;
         }
     }
 }
