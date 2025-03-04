@@ -64,10 +64,17 @@ namespace Chorizite.PluginIndexBuilder {
                 MakeSchemas();
 
                 var repositories = await GetRepositories();
-                var releaseModel = await BuildReleasesIndexModel(repositories);
+                var choriziteReleases = await BuildChoriziteReleaseModel();
+                var releaseModel = await BuildReleasesIndexModel(repositories, choriziteReleases);
 
                 var indexJson = JsonSerializer.Serialize(releaseModel, jsonOpts);
                 File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "index.json"), indexJson);
+
+                var choriziteReleasesJson = JsonSerializer.Serialize(new ChoriziteReleasesModel() {
+                    TotalDownloads = choriziteReleases.Sum(r => r.Downloads),
+                    Releases = choriziteReleases
+                }, jsonOpts);
+                File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "chorizite.json"), choriziteReleasesJson);
 
                 List<PluginDetailsModel> detailsModels = [];
                 foreach (var plugin in releaseModel.Plugins) {
@@ -105,6 +112,11 @@ namespace Chorizite.PluginIndexBuilder {
             var indexSchemaJson = indexSchema.ToJson(Newtonsoft.Json.Formatting.Indented);
 
             File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "schemas", "release-index-schema.json"), indexSchemaJson);
+
+            var choriziteReleasesSchema = JsonSchema.FromType<ChoriziteReleasesModel>(settings);
+            var choriziteReleasesSchemaJson = choriziteReleasesSchema.ToJson(Newtonsoft.Json.Formatting.Indented);
+
+            File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "schemas", "chorizite-releases-schema.json"), choriziteReleasesSchemaJson);
 
             var pluginDetailsSchema = JsonSchema.FromType<PluginDetailsModel>(settings);
             var pluginDetailsSchemaJson = pluginDetailsSchema.ToJson(Newtonsoft.Json.Formatting.Indented);
@@ -148,9 +160,24 @@ namespace Chorizite.PluginIndexBuilder {
             };
         }
 
-        private async Task<ReleasesIndexModel> BuildReleasesIndexModel(List<RepositoryInfo> repositories) {
+        private async Task<ReleasesIndexModel> BuildReleasesIndexModel(List<RepositoryInfo> repositories, List<ReleaseDetailsModel> choriziteReleases) {
+            var latest = choriziteReleases.First(r => r.IsBeta == false);
+            //var latestBeta = choriziteReleases.First(r => r.IsBeta == true);
             return new ReleasesIndexModel() {
-                Chorizite = await BuildChoriziteReleaseModel(),
+                Chorizite = new ChoriziteInfoModel() {
+                    Latest = new ReleaseModel() {
+                        Created = latest.Created,
+                        Sha256 = latest.Sha256,
+                        DownloadUrl = latest.DownloadUrl,
+                        Version = latest.Version,
+                        Downloads = latest.Downloads,
+                        Updated = latest.Updated,
+                        Dependencies = latest.Dependencies,
+                        Environments = latest.Environments,
+                        HasReleaseModifications = false
+                    },
+                    LatestBeta = null
+                },
                 Plugins = await BuildPluginListing(repositories.Where(r => r.Latest is not null))
             };
         }
@@ -299,17 +326,21 @@ namespace Chorizite.PluginIndexBuilder {
             }
         }
 
-        private async Task<ChoriziteInfoModel> BuildChoriziteReleaseModel() {
+        private async Task<List<ReleaseDetailsModel>> BuildChoriziteReleaseModel() {
             var allReleases = await _client.Repository.Release.GetAll("Chorizite", "Chorizite");
-            var release = allReleases.First();
-            var asset = release.Assets.FirstOrDefault(a => !a.Name.Contains("Source code") && a.Name.Contains("Installer"));
+            var releases = new List<ReleaseDetailsModel>();
 
-            if (asset == null) {
-                throw new Exception($"Error: No zip found for release: {release.TagName} ({string.Join(", ", release.Assets.Select(a => a.Name))})");
-            }
+            foreach (var release in allReleases) {
+                var asset = release.Assets.FirstOrDefault(a => !a.Name.Contains("Source code") && a.Name.Contains("Installer"));
 
-            return new ChoriziteInfoModel() {
-                Latest = new() {
+                if (asset == null) {
+                    throw new Exception($"Error: No zip found for release: {release.TagName} ({string.Join(", ", release.Assets.Select(a => a.Name))})");
+                }
+
+                releases.Add(new() {
+                    Name = release.Name,
+                    Changelog = release.Body,
+                    IsBeta = release.TagName.Split('/').Last().Contains("-"),
                     Version = release.TagName.Split('/').Last(),
                     DownloadUrl = asset.BrowserDownloadUrl,
                     Sha256 = await CalculateSha256(asset.BrowserDownloadUrl),
@@ -319,9 +350,10 @@ namespace Chorizite.PluginIndexBuilder {
                     Dependencies = [],
                     Environments = [],
                     HasReleaseModifications = false
-                },
-                LatestBeta = null
-            };
+                });
+            }
+
+            return releases;
         }
 
         private void MakeDirectories() {
