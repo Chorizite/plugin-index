@@ -62,6 +62,11 @@ namespace Chorizite.PluginIndexBuilder {
                 var releaseModel = await BuildReleasesIndexModel(repositories, choriziteReleases);
 
                 var indexJson = JsonSerializer.Serialize(releaseModel, jsonOpts);
+
+                // the json plugin that the installer uses barfs on empty arrays / objects
+                // so we have to make sure to null them lol
+                indexJson = indexJson.Replace("[]", "null").Replace("{}", "null");
+                
                 File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "index.json"), indexJson);
 
                 var choriziteReleasesJson = JsonSerializer.Serialize(new ChoriziteDetailsModel() {
