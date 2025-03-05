@@ -76,7 +76,7 @@ namespace Chorizite.PluginIndexBuilder {
             var release = plugin.Releases.First();
 
             var deps = "";
-            if (plugin.Dependencies.Count > 0) {
+            if (plugin.Dependencies?.Count > 0) {
                 deps = $"""
                             <div class="plugin-meta-item">
                                 <span class="plugin-meta-label">Depends On:</span>

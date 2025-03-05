@@ -21,7 +21,8 @@ namespace Chorizite.PluginIndexBuilder {
             WriteIndented = true,
             IncludeFields = false,
             PropertyNameCaseInsensitive = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            
         };
 
         internal static string? GithubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN") ?? Environment.GetEnvironmentVariable("GH_TOKEN");
@@ -130,8 +131,8 @@ namespace Chorizite.PluginIndexBuilder {
                     Updated = r.asset.UpdatedAt.UtcDateTime,
                     Downloads = r.asset.DownloadCount,
                     IsBeta = r.IsBeta,
-                    Dependencies = r.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
-                    Environments = r.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
+                    Dependencies = r.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList(),
+                    Environments = r.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList(),
                     Changelog = r.Changelog,
                     Version = r.Version,
                     HasReleaseModifications = false
@@ -146,8 +147,8 @@ namespace Chorizite.PluginIndexBuilder {
                 Author = plugin.Author,
                 Website = plugin.Website,
                 Description = plugin.Description,
-                Dependencies = plugin.Latest.Dependencies,
-                Environments = plugin.Latest.Environments,
+                Dependencies = plugin.Latest.Dependencies?.Count > 0 ? plugin.Latest.Dependencies : null,
+                Environments = plugin.Latest.Environments ?? [],
                 IsDefault = plugin.IsDefault,
                 IsOfficial = plugin.IsOfficial,
                 TotalDownloads = plugin.TotalDownloads,
@@ -167,8 +168,8 @@ namespace Chorizite.PluginIndexBuilder {
                         Version = latest.Version,
                         Downloads = latest.Downloads,
                         Updated = latest.Updated,
-                        Dependencies = latest.Dependencies,
-                        Environments = latest.Environments,
+                        Dependencies = latest.Dependencies?.Count > 0 ? latest.Dependencies : null,
+                        Environments = latest.Environments?.Count > 0 ? latest.Environments : null,
                         HasReleaseModifications = false
                     },
                     LatestBeta = null
@@ -187,16 +188,16 @@ namespace Chorizite.PluginIndexBuilder {
                     Author = r.Author,
                     IsDefault = r.IsCorePlugin,
                     IsOfficial = r.repoOwner == "Chorizite",
-                    Dependencies = r.Latest?.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
-                    Environments = r.Latest?.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
+                    Dependencies = r.Latest?.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList(),
+                    Environments = r.Latest?.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList() ?? ["None"],
                     TotalDownloads = r.Releases.Sum(re => re.asset.DownloadCount),
                     Latest = new() {
                         Version = r.Latest!.Version,
                         DownloadUrl = r.Latest.DownloadUrl,
                         Sha256 = await CalculateSha256(r.Latest.zipPath),
                         Downloads = r.Latest.asset.DownloadCount,
-                        Environments = r.Latest.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
-                        Dependencies = r.Latest.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
+                        Environments = r.Latest.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList(),
+                        Dependencies = r.Latest.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList(),
                         Created = r.Latest.asset.CreatedAt.UtcDateTime,
                         Updated = r.Latest.asset.UpdatedAt.UtcDateTime,
                         HasReleaseModifications = false
@@ -206,8 +207,8 @@ namespace Chorizite.PluginIndexBuilder {
                         DownloadUrl = r.LatestBeta.DownloadUrl,
                         Sha256 = await CalculateSha256(r.LatestBeta.zipPath),
                         Downloads = r.LatestBeta.asset.DownloadCount,
-                        Dependencies = r.LatestBeta.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
-                        Environments = r.LatestBeta.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList() ?? [],
+                        Dependencies = r.LatestBeta.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList(),
+                        Environments = r.LatestBeta.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList(),
                         Created = r.LatestBeta.asset.CreatedAt.UtcDateTime,
                         Updated = r.LatestBeta.asset.UpdatedAt.UtcDateTime,
                         HasReleaseModifications = false
