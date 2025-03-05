@@ -104,19 +104,19 @@ namespace Chorizite.PluginIndexBuilder {
             var indexSchema = JsonSchema.FromType<ReleasesIndexModel>(settings);
             var indexSchemaJson = indexSchema.ToJson(Newtonsoft.Json.Formatting.Indented);
 
-            File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "schemas", "release-index-schema.json"), indexSchemaJson);
+            File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "schemas", "release-index.json"), indexSchemaJson);
 
             var choriziteReleasesSchema = JsonSchema.FromType<ChoriziteDetailsModel>(settings);
             var choriziteReleasesSchemaJson = choriziteReleasesSchema.ToJson(Newtonsoft.Json.Formatting.Indented);
 
-            File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "schemas", "chorizite-details-schema.json"), choriziteReleasesSchemaJson);
+            File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "schemas", "chorizite-details.json"), choriziteReleasesSchemaJson);
 
             var pluginDetailsSchema = JsonSchema.FromType<PluginDetailsModel>(settings);
             var pluginDetailsSchemaJson = pluginDetailsSchema.ToJson(Newtonsoft.Json.Formatting.Indented);
 
             File.WriteAllText(System.IO.Path.Combine(options.OutputDirectory, "schemas", "plugin-details-schema.json"), pluginDetailsSchemaJson);
 
-            File.Copy(Path.Combine(Path.GetDirectoryName(GetType().Assembly.Location)!, "schemas", "plugin-manifest-schema.json"), Path.Combine(options.OutputDirectory, "schemas", "plugin-manifest-schema.json"));
+            File.Copy(Path.Combine(Path.GetDirectoryName(GetType().Assembly.Location)!, "schemas", "plugin-manifest.json"), Path.Combine(options.OutputDirectory, "schemas", "plugin-manifest.json"));
         }
 
         private async Task<PluginDetailsModel> BuildPluginDetailsModel(PluginListingModel plugin, RepositoryInfo repo) {
