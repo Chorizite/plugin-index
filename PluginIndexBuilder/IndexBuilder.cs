@@ -93,9 +93,9 @@ namespace Chorizite.PluginIndexBuilder {
 
                 BuildHtml(releaseModel.Chorizite, detailsModels, System.IO.Path.Combine(options.OutputDirectory, "index.html"));
 
-                //await PostChoriziteUpdates(choriziteReleases);
-                //await PostPluginUpdates(repositories);
-                //await PostPluginReleaseAssetModifications(repositories);
+                await PostChoriziteUpdates(choriziteReleases);
+                await PostPluginUpdates(repositories);
+                await PostPluginReleaseAssetModifications(repositories);
 
                 discord.Dispose();
             }
