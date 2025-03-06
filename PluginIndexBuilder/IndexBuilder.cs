@@ -25,7 +25,6 @@ namespace Chorizite.PluginIndexBuilder {
             IncludeFields = false,
             PropertyNameCaseInsensitive = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            
         };
 
         internal static string? GithubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN") ?? Environment.GetEnvironmentVariable("GH_TOKEN");
@@ -94,9 +93,9 @@ namespace Chorizite.PluginIndexBuilder {
 
                 BuildHtml(releaseModel.Chorizite, detailsModels, System.IO.Path.Combine(options.OutputDirectory, "index.html"));
 
-                await PostChoriziteUpdates(choriziteReleases);
-                await PostPluginUpdates(repositories);
-                await PostPluginReleaseAssetModifications(repositories);
+                //await PostChoriziteUpdates(choriziteReleases);
+                //await PostPluginUpdates(repositories);
+                //await PostPluginReleaseAssetModifications(repositories);
 
                 discord.Dispose();
             }
@@ -139,7 +138,7 @@ namespace Chorizite.PluginIndexBuilder {
                 Website = plugin.Website,
                 Description = plugin.Description,
                 Dependencies = plugin.Latest.Dependencies?.Count > 0 ? plugin.Latest.Dependencies : null,
-                Environments = plugin.Latest.Environments ?? [],
+                Environments = BuildEnvironments(plugin.Latest.Environments),
                 IsDefault = plugin.IsDefault,
                 IsOfficial = plugin.IsOfficial,
                 TotalDownloads = plugin.TotalDownloads,
@@ -160,7 +159,7 @@ namespace Chorizite.PluginIndexBuilder {
                         Downloads = latest.Downloads,
                         Updated = latest.Updated,
                         Dependencies = latest.Dependencies?.Count > 0 ? latest.Dependencies : null,
-                        Environments = latest.Environments?.Count > 0 ? latest.Environments : null,
+                        Environments = BuildEnvironments(latest.Environments),
                         HasReleaseModifications = false
                     },
                     LatestBeta = null
@@ -174,13 +173,13 @@ namespace Chorizite.PluginIndexBuilder {
             foreach (var r in repos) {
                 plugins.Add(new PluginListingModel() {
                     Id = r.Id,
-                    Name = r.Latest.Details.Name,
+                    Name = r.Name,
                     Website = r.RepoUrl,
                     Author = r.Author,
                     IsDefault = DefaultPluginIds.Contains(r.Id),
                     IsOfficial = r._repoOwner == "Chorizite",
                     Dependencies = r.Latest.Details.Dependencies,
-                    Environments = r.Latest.Details.Environments ?? ["None"],
+                    Environments = BuildEnvironments(r.Latest.Details.Environments),
                     TotalDownloads = r.Releases.Sum(r => r.Details?.Downloads ?? 0),
                     Latest = BuildPluginReleaseModel(r.Latest),
                     LatestBeta = BuildPluginReleaseModel(r.LatestBeta),
@@ -188,6 +187,14 @@ namespace Chorizite.PluginIndexBuilder {
                 });
             }
             return plugins;
+        }
+
+        private List<string>? BuildEnvironments(List<string>? environments) {
+            if (environments is null) return null;
+            if (environments.Count == 0) return null;
+            if (environments.Count == 1 && environments[0] == "DocGen") return new List<string>() { "Client", "Launcher" };
+
+            return environments;
         }
 
         private ReleaseModel? BuildPluginReleaseModel(ReleaseInfo? latest) {
@@ -198,7 +205,7 @@ namespace Chorizite.PluginIndexBuilder {
                 DownloadUrl = latest.Details.DownloadUrl,
                 Sha256 = latest.Details.Sha256,
                 Downloads = latest.Details.Downloads,
-                Environments = latest.Details.Environments ?? ["None"],
+                Environments = BuildEnvironments(latest.Details.Environments),
                 Dependencies = latest.Details.Dependencies,
                 Created = latest.Details.Created,
                 Updated = latest.Details.Updated,

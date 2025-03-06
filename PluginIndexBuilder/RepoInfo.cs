@@ -73,6 +73,8 @@ namespace Chorizite.PluginIndexBuilder {
             try {
                 Directory.CreateDirectory(workDirectory);
                 ExistingReleaseInfo = await GetExistingReleaseInfo();
+                if (ExistingReleaseInfo is not null)
+                ExistingReleaseInfo.Releases = ExistingReleaseInfo.Releases.Skip(1).ToList();
                 Releases = (await GetReleases()).Where(r => r.IsValid).ToList();
                 Author = Releases.FirstOrDefault(r => r.IsNew)?.Manifest?.Author ?? ExistingReleaseInfo?.Author ?? _repoOwner;
                 Name = Releases.FirstOrDefault(r => r.IsNew)?.Manifest?.Name ?? ExistingReleaseInfo?.Name ?? _repoName;
@@ -183,6 +185,8 @@ namespace Chorizite.PluginIndexBuilder {
         }
 
         private async Task MirrorPackages() {
+            if (!Releases.Any(r => r.IsNew)) return;
+
             FindPackageByIdResource resource = await _nugetRepo.GetResourceAsync<FindPackageByIdResource>();
 
             nugetVersions = await resource.GetAllVersionsAsync(PackageId, _nugetCache, _log, CancellationToken.None);
