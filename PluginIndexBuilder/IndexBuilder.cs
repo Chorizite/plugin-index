@@ -12,11 +12,14 @@ using System.Security.Cryptography;
 using NJsonSchema;
 using NJsonSchema.Generation;
 using Chorizite.Plugins.Models;
+using System.Net.Http;
 
 namespace Chorizite.PluginIndexBuilder {
     internal class IndexBuilder {
         private Options options;
-        private List<RepositoryInfo> repositories = [];
+        private List<RepoInfo> repositories = [];
+
+        internal static List<string> DefaultPluginIds = ["Lua", "RmlUi", "Launcher", "AC", "PluginManagerUI"];
         internal static JsonSerializerOptions jsonOpts = new JsonSerializerOptions {
             WriteIndented = true,
             IncludeFields = false,
@@ -57,7 +60,7 @@ namespace Chorizite.PluginIndexBuilder {
                 MakeDirectories();
                 MakeSchemas();
 
-                var repositories = await GetRepositories();
+                var repositories = (await GetRepositories()).Where(r => r.IsValid).ToList();
                 var choriziteReleases = await BuildChoriziteReleaseModel();
                 var releaseModel = await BuildReleasesIndexModel(repositories, choriziteReleases);
 
@@ -91,8 +94,9 @@ namespace Chorizite.PluginIndexBuilder {
 
                 BuildHtml(releaseModel.Chorizite, detailsModels, System.IO.Path.Combine(options.OutputDirectory, "index.html"));
 
-                //await PostPluginUpdates(releaseResults);
-                //await PostPluginReleaseAssetModifications(releaseResults);
+                await PostChoriziteUpdates(choriziteReleases);
+                await PostPluginUpdates(repositories);
+                await PostPluginReleaseAssetModifications(repositories);
 
                 discord.Dispose();
             }
@@ -125,26 +129,8 @@ namespace Chorizite.PluginIndexBuilder {
             File.Copy(Path.Combine(Path.GetDirectoryName(GetType().Assembly.Location)!, "schemas", "plugin-manifest.json"), Path.Combine(options.OutputDirectory, "schemas", "plugin-manifest.json"));
         }
 
-        private async Task<PluginDetailsModel> BuildPluginDetailsModel(PluginListingModel plugin, RepositoryInfo repo) {
+        private async Task<PluginDetailsModel> BuildPluginDetailsModel(PluginListingModel plugin, RepoInfo repo) {
             var releases = new List<ReleaseDetailsModel>();
-            foreach (var r in repo.Releases) {
-                var model = new ReleaseDetailsModel() {
-                    Name = r.Name,
-                    DownloadUrl = r.DownloadUrl,
-                    Sha256 = await CalculateSha256(r.zipPath),
-                    Created = r.asset.CreatedAt.UtcDateTime,
-                    Updated = r.asset.UpdatedAt.UtcDateTime,
-                    Downloads = r.asset.DownloadCount,
-                    IsBeta = r.IsBeta,
-                    Dependencies = r.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList(),
-                    Environments = r.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList(),
-                    Changelog = r.Changelog,
-                    Version = r.Version,
-                    HasReleaseModifications = false
-                };
-
-                releases.Add(model);
-            }
 
             return new PluginDetailsModel() {
                 Id = plugin.Id,
@@ -157,11 +143,11 @@ namespace Chorizite.PluginIndexBuilder {
                 IsDefault = plugin.IsDefault,
                 IsOfficial = plugin.IsOfficial,
                 TotalDownloads = plugin.TotalDownloads,
-                Releases = releases
+                Releases = repo.Releases.Select(r => r.Details).Where(r => r is not null).Cast<ReleaseDetailsModel>().ToList()
             };
         }
 
-        private async Task<ReleasesIndexModel> BuildReleasesIndexModel(List<RepositoryInfo> repositories, List<ReleaseDetailsModel> choriziteReleases) {
+        private async Task<ReleasesIndexModel> BuildReleasesIndexModel(List<RepoInfo> repositories, List<ReleaseDetailsModel> choriziteReleases) {
             var latest = choriziteReleases.First(r => r.IsBeta == false);
             //var latestBeta = choriziteReleases.First(r => r.IsBeta == true);
             return new ReleasesIndexModel() {
@@ -179,52 +165,48 @@ namespace Chorizite.PluginIndexBuilder {
                     },
                     LatestBeta = null
                 },
-                Plugins = await BuildPluginListing(repositories.Where(r => r.Latest is not null))
+                Plugins = await BuildPluginListing(repositories)
             };
         }
 
-        private async Task<List<PluginListingModel>> BuildPluginListing(IEnumerable<RepositoryInfo> repos) {
+        private async Task<List<PluginListingModel>> BuildPluginListing(IEnumerable<RepoInfo> repos) {
             var plugins = new List<PluginListingModel>();
             foreach (var r in repos) {
                 plugins.Add(new PluginListingModel() {
                     Id = r.Id,
-                    Name = r.Name,
+                    Name = r.Latest.Details.Name,
                     Website = r.RepoUrl,
                     Author = r.Author,
-                    IsDefault = r.IsCorePlugin,
-                    IsOfficial = r.repoOwner == "Chorizite",
-                    Dependencies = r.Latest?.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList(),
-                    Environments = r.Latest?.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList() ?? ["None"],
-                    TotalDownloads = r.Releases.Sum(re => re.asset.DownloadCount),
-                    Latest = new() {
-                        Version = r.Latest!.Version,
-                        DownloadUrl = r.Latest.DownloadUrl,
-                        Sha256 = await CalculateSha256(r.Latest.zipPath),
-                        Downloads = r.Latest.asset.DownloadCount,
-                        Environments = r.Latest.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList(),
-                        Dependencies = r.Latest.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList(),
-                        Created = r.Latest.asset.CreatedAt.UtcDateTime,
-                        Updated = r.Latest.asset.UpdatedAt.UtcDateTime,
-                        HasReleaseModifications = false
-                    },
-                    LatestBeta = r.LatestBeta?.Version is not null && new Version(r.Latest.Version) <= new Version(r.LatestBeta.Version.Split('-').First()) ? new() {
-                        Version = r.LatestBeta.Version,
-                        DownloadUrl = r.LatestBeta.DownloadUrl,
-                        Sha256 = await CalculateSha256(r.LatestBeta.zipPath),
-                        Downloads = r.LatestBeta.asset.DownloadCount,
-                        Dependencies = r.LatestBeta.Manifest?["dependencies"]?.AsArray().Select(d => d.ToString()).ToList(),
-                        Environments = r.LatestBeta.Manifest?["environments"]?.AsArray().Select(d => d.ToString()).ToList(),
-                        Created = r.LatestBeta.asset.CreatedAt.UtcDateTime,
-                        Updated = r.LatestBeta.asset.UpdatedAt.UtcDateTime,
-                        HasReleaseModifications = false
-                    } : null,
+                    IsDefault = DefaultPluginIds.Contains(r.Id),
+                    IsOfficial = r._repoOwner == "Chorizite",
+                    Dependencies = r.Latest.Details.Dependencies,
+                    Environments = r.Latest.Details.Environments ?? ["None"],
+                    TotalDownloads = r.Releases.Sum(r => r.Details?.Downloads ?? 0),
+                    Latest = BuildPluginReleaseModel(r.Latest),
+                    LatestBeta = BuildPluginReleaseModel(r.LatestBeta),
                     Description = r.Description ?? ""
                 });
             }
             return plugins;
         }
 
-        private async Task<string> CalculateSha256(string filePath) {
+        private ReleaseModel? BuildPluginReleaseModel(ReleaseInfo? latest) {
+            if (latest?.Details is null) return null;
+
+            return new() {
+                Version = latest.Details.Version,
+                DownloadUrl = latest.Details.DownloadUrl,
+                Sha256 = latest.Details.Sha256,
+                Downloads = latest.Details.Downloads,
+                Environments = latest.Details.Environments ?? ["None"],
+                Dependencies = latest.Details.Dependencies,
+                Created = latest.Details.Created,
+                Updated = latest.Details.Updated,
+                HasReleaseModifications = false
+            };
+        }
+
+        internal static async Task<string> CalculateSha256(string filePath) {
             Stream stream;
             if (filePath.StartsWith("http")) {
                 stream = await Program.http.GetStreamAsync(filePath);
@@ -239,7 +221,7 @@ namespace Chorizite.PluginIndexBuilder {
             }
         }
 
-        private async Task<List<RepositoryInfo>> GetRepositories() {
+        private async Task<List<RepoInfo>> GetRepositories() {
             var jsonString = File.ReadAllText(options.RespositoriesJsonPath);
             var json = JsonNode.Parse(jsonString);
 
@@ -248,23 +230,22 @@ namespace Chorizite.PluginIndexBuilder {
             }
 
             foreach (var repo in json["repositories"]!.AsObject()) {
-                repositories.Add(new RepositoryInfo(repo.Key.ToString(), repo.Value!.ToString(), _client, options));
+                repositories.Add(new RepoInfo(repo.Key.ToString(), repo.Value!.ToString(), _client, options));
             }
             await Task.WhenAll(repositories.Select(r => r.Build()));
 
             return repositories.Where(r => r.Latest is not null).ToList();
         }
 
-        private async Task PostPluginReleaseAssetModifications(IEnumerable<RepositoryInfo> releaseResults) {
-
+        private async Task PostPluginReleaseAssetModifications(IEnumerable<RepoInfo> releaseResults) {
             var assetChangeEmbeds = new List<EmbedBuilder>();
             foreach (var repo in releaseResults) {
                 var assetChanges = new List<string>();
                 foreach (var release in repo.Releases ?? []) {
                     if (release.IsNew) continue;
 
-                    if (release.OldHash != release.Hash) {
-                        assetChanges.Add($"Changed {release.Name} Asset ({release.OldHash} -> {release.Hash})");
+                    if (release.HasAssetModifications) {
+                        assetChanges.Add($"Changed {repo.Id}({repo.Name} {release.Details?.Version}) asset");
                     }
                 }
                 if (assetChanges.Count > 0) {
@@ -286,14 +267,40 @@ namespace Chorizite.PluginIndexBuilder {
             }
         }
 
-        private async Task PostPluginUpdates(IEnumerable<RepositoryInfo> releaseResults) {
+        private async Task PostChoriziteUpdates(List<ReleaseDetailsModel> choriziteReleases) {
+            var json = await Program.http.GetStringAsync("https://chorizite.github.io/plugin-index/chorizite.json");
+            var existingReleases = JsonSerializer.Deserialize<ChoriziteDetailsModel>(json, jsonOpts);
+
+            var latestExisting = existingReleases.Releases?.FirstOrDefault();
+            var latest = choriziteReleases.FirstOrDefault();
+
+            if (latest is null) return;
+
+            Console.WriteLine($"Latest Chorizite version: {latest.Version} (Old: {latestExisting?.Version})");
+
+            if (new Version(latestExisting?.Version ?? "0.0.0") < new Version(latest.Version)) {
+                var eb = new EmbedBuilder {
+                    Title = $"Download Chorizite v{latest.Version} Installer",
+                    Description = FormatChangelog(latest.Changelog),
+                    Color = Color.Purple,
+                    Url = latest.DownloadUrl,
+                    Author = new EmbedAuthorBuilder {
+                        Name = "Chorizite",
+                        IconUrl = $"https://avatars.githubusercontent.com/u/184878336?s=200",
+                    }
+                };
+                await discord.SendMessageAsync(text: ":fire: New Chorizite release! :fire:", embeds: [ eb.Build() ]);
+            }
+        }
+
+        private async Task PostPluginUpdates(IEnumerable<RepoInfo> releaseResults) {
             try {
                 var newReleaseEmbeds = new List<EmbedBuilder>();
                 foreach (var repo in releaseResults) {
                     if (repo.Latest?.IsNew == true) {
                         newReleaseEmbeds.Add(new EmbedBuilder {
-                            Title = $"{repo.Id} {repo.Latest.Name}",
-                            Description = repo.Latest.Changelog,
+                            Title = $"{repo.Name} v{repo.Latest.Details.Version}",
+                            Description = FormatChangelog(repo.Latest.Details.Changelog),
                             Color = Color.Green,
                             Url = repo.RepoUrl,
                             Author = new EmbedAuthorBuilder {
@@ -301,12 +308,12 @@ namespace Chorizite.PluginIndexBuilder {
                                 IconUrl = $"https://chorizite.github.io/plugin-index/plugins/{repo.Id}.png",
                             }
                         });
-                        Console.WriteLine($"New release: {repo.Id} {repo.Latest.Name}");
+                        Console.WriteLine($"New release: {repo.Id} {repo.Latest.Details.Name}");
                     }
                     else if (repo.LatestBeta?.IsNew == true) {
                         newReleaseEmbeds.Add(new EmbedBuilder {
-                            Title = $"[beta] {repo.Id} v{repo.LatestBeta.Name}",
-                            Description = repo.LatestBeta.Changelog,
+                            Title = $"[beta] {repo.Name} v{repo.LatestBeta.Details.Version}",
+                            Description = FormatChangelog(repo.LatestBeta.Details.Changelog),
                             Color = Color.Teal,
                             Url = repo.RepoUrl,
                             Author = new EmbedAuthorBuilder {
@@ -314,17 +321,23 @@ namespace Chorizite.PluginIndexBuilder {
                                 IconUrl = $"https://chorizite.github.io/plugin-index/plugins/{repo.Id}.png",
                             }
                         });
-                        Console.WriteLine($"New release: {repo.Id} (Beta) {repo.LatestBeta.Name}");
+                        Console.WriteLine($"New release: {repo.Id} (Beta) {repo.LatestBeta.Details.Name}");
                     }
                 }
 
                 if (newReleaseEmbeds.Count > 0) {
-                    await discord.SendMessageAsync(text: "New plugin releases!", embeds: newReleaseEmbeds.Select(e => e.Build()));
+                    await discord.SendMessageAsync(text: ":fire: New plugin releases! :fire:", embeds: newReleaseEmbeds.Select(e => e.Build()));
                 }
             }
             catch (Exception e) {
                 Console.WriteLine($"Error posting plugin updates: {e.Message}");
             }
+        }
+
+        private string FormatChangelog(string changelog) {
+            return changelog
+                .Replace("## What's Changed", "### What's Changed")
+                .Replace("## New Contributors", "### New Contributors");
         }
 
         private async Task<List<ReleaseDetailsModel>> BuildChoriziteReleaseModel() {

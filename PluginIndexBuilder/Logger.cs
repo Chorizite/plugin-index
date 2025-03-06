@@ -6,13 +6,17 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 namespace Chorizite.PluginIndexBuilder {
     internal class Logger : ILogger {
         private string name;
+        private Options options;
 
-        public Logger(string name) {
+        public Logger(string name, Options options) {
             this.name = name;
+            this.options = options;
         }
 
         public void Log(LogLevel level, string data) {
-            Console.WriteLine($"{name}[{level}]: {data}");
+            if (options.Verbose || level >= LogLevel.Warning) {
+                Console.WriteLine($"{name}[{level}]: {data}");
+            }
         }
 
         public void Log(ILogMessage message) {
@@ -20,7 +24,9 @@ namespace Chorizite.PluginIndexBuilder {
         }
 
         public Task LogAsync(LogLevel level, string data) {
-            Console.WriteLine($"{name}[{level}]: {data}");
+            if (options.Verbose || level >= LogLevel.Warning) {
+                Console.WriteLine($"{name}[{level}]: {data}");
+            }
             return Task.CompletedTask;
         }
 
@@ -30,7 +36,9 @@ namespace Chorizite.PluginIndexBuilder {
         }
 
         public void LogDebug(string data) {
-            Log(LogLevel.Debug, data);
+            if (options.Verbose) {
+                Log(LogLevel.Debug, data);
+            }
         }
 
         public void LogError(string data) {
@@ -38,23 +46,33 @@ namespace Chorizite.PluginIndexBuilder {
         }
 
         public void LogInformation(string data) {
-            Log(LogLevel.Information, data);
+            if (options.Verbose) {
+                Log(LogLevel.Information, data);
+            }
         }
 
         public void LogInformationSummary(string data) {
-            Log(LogLevel.Information, data);
+            if (options.Verbose) {
+                Log(LogLevel.Information, data);
+            }
         }
 
         public void LogMinimal(string data) {
-            Log(LogLevel.Minimal, data);
+            if (options.Verbose) {
+                Log(LogLevel.Minimal, data);
+            }
         }
 
         public void LogVerbose(string data) {
-            Log(LogLevel.Verbose, data);
+            if (options.Verbose) {
+                Log(LogLevel.Verbose, data);
+            }
         }
 
         public void LogWarning(string data) {
-            throw new System.NotImplementedException();
+            if (options.Verbose) {
+                Log(LogLevel.Warning, data);
+            }
         }
     }
 }

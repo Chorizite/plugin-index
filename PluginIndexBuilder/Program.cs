@@ -36,6 +36,11 @@ namespace Chorizite.PluginIndexBuilder {
                     return;
                 }
 
+                try {
+                    Directory.Delete(o.WorkDirectory, true);
+                }
+                catch { }
+
                 var indexBuilder = new IndexBuilder(o);
                 indexBuilder.Build().Wait();
             }).WithNotParsed(errs => DisplayHelp(parserResult, errs)); ;
