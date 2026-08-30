@@ -6,6 +6,7 @@
     "Launcher": "https://github.com/Chorizite/LauncherPlugin",
     "AC": "https://github.com/Chorizite/ACPlugin",
     "PluginManagerUI": "https://github.com/Chorizite/PluginManagerUIPlugin",
-    "AuctionHouse": "https://github.com/ACEAuction/AuctionMod"
+    "AuctionHouse": "https://github.com/ACEAuction/AuctionMod",
+    "ServerBrowser": "https://github.com/Raajik/chorizite-server-browser"
   }
 }
